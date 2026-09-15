@@ -1,0 +1,50 @@
+{
+ "spec": "SPEC §8w.2 item 4 — qualification of the selected checkpoint after a normal ending",
+ "tool": "tools/p4/p4_qualify.py",
+ "minted_utc": "2026-09-15T07:57:24Z",
+ "run_uid": "971d3f8245a4d3c3",
+ "run_dir": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/p4/runs/N_O+macro_filtered_H120k",
+ "horizon": 120000,
+ "ending": "normal",
+ "ending_reasons": [],
+ "dry_run": false,
+ "as_of": null,
+ "n_validations": 60,
+ "n_eligible": 38,
+ "selection_rule": "lowest eligible S; ties within 0.05 pp -> earlier",
+ "tied_with": [
+  116000,
+  118000,
+  120000
+ ],
+ "selected_update": 116000,
+ "selected_S_pp": 16.89126115282218,
+ "qualified": true,
+ "qualification": {
+  "S_pp": 16.89126115282218,
+  "S_le_22.0296": true,
+  "D_pp": 16.831,
+  "D_le_21.348": true,
+  "all_guards_pass": true,
+  "eligible": true
+ },
+ "source_pt": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/p4/runs/N_O+macro_filtered_H120k/best/step_116000.pt",
+ "source_pt_sha256": "45351ab342f8d2cd6468d2009bb6135c2be9de8a7e62a1ee7d0d8ddfb347d621",
+ "selected_checkpoint": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/p4/runs/N_O+macro_filtered_H120k/export/step_116000.nemo",
+ "selected_sha256": "bea300ce4f1f1df1fa4707562ddaa7c64db6f01121ef3d64a6333635f3626572",
+ "export_verified": {
+  "recorded_wer_frozen": 0.16831,
+  "exported_wer_frozen": 0.16831,
+  "match": true,
+  "n": 5385,
+  "limit": null
+ },
+ "identity": {
+  "run_uid": "971d3f8245a4d3c3",
+  "init": "N",
+  "init_sha256": "1f2c819d9d418466525b45a8d5d5b1d48509ed3c1af2a63d25e35154052adf5f",
+  "tokenizer_sha256": "6288cf8e300e3ec9bef4b138c1a45c79fcb8d76ad1bd674d844c30cd611522be",
+  "train_manifest_sha256": "00d6506b30bf7186e2b018e673937cb9b40c8558f770adab913f3364e4d4c021",
+  "effective_batch": 252
+ }
+}

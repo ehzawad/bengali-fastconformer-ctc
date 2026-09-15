@@ -1,0 +1,83 @@
+{
+ "madasr": {
+  "n": 95241,
+  "tps_p50": 4.13,
+  "tps_p95": 6.62,
+  "tps_p99": 8.05,
+  "tps_max": 11.16,
+  "max_dur": 22.79,
+  "unk_rows": 0
+ },
+ "macro_filtered": {
+  "n": 543420,
+  "tps_p50": 4.08,
+  "tps_p95": 6.7,
+  "tps_p99": 8.73,
+  "tps_max": 11.11,
+  "max_dur": 12.49,
+  "unk_rows": 0
+ },
+ "openslr53": {
+  "n": 162144,
+  "tps_p50": 2.3,
+  "tps_p95": 3.91,
+  "tps_p99": 4.76,
+  "tps_max": 9.71,
+  "max_dur": 26.1,
+  "unk_rows": 0
+ },
+ "vaani": {
+  "n": 85947,
+  "tps_p50": 4.31,
+  "tps_p95": 6.4,
+  "tps_p99": 7.46,
+  "tps_max": 11.03,
+  "max_dur": 21.69,
+  "unk_rows": 0
+ },
+ "indicvoices": {
+  "n": 273001,
+  "tps_p50": 4.12,
+  "tps_p95": 6.26,
+  "tps_p99": 7.69,
+  "tps_max": 10.97,
+  "max_dur": 29.98,
+  "unk_rows": 0
+ },
+ "kathbath": {
+  "n": 45965,
+  "tps_p50": 4.65,
+  "tps_p95": 6.15,
+  "tps_p99": 7.01,
+  "tps_max": 10.7,
+  "max_dur": 20.25,
+  "unk_rows": 0
+ },
+ "commonvoice": {
+  "n": 24712,
+  "tps_p50": 4.08,
+  "tps_p95": 5.88,
+  "tps_p99": 6.73,
+  "tps_max": 10.13,
+  "max_dur": 10.62,
+  "unk_rows": 0
+ },
+ "subakko": {
+  "n": 33800,
+  "tps_p50": 4.96,
+  "tps_p95": 6.45,
+  "tps_p99": 7.14,
+  "tps_max": 10.64,
+  "max_dur": 27.63,
+  "unk_rows": 0
+ },
+ "fleurs_train": {
+  "n": 1654,
+  "tps_p50": 3.9,
+  "tps_p95": 5.13,
+  "tps_p99": 5.64,
+  "tps_max": 6.41,
+  "max_dur": 29.04,
+  "unk_rows": 0
+ }
+}

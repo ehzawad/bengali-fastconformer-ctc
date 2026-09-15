@@ -1,0 +1,51 @@
+{
+ "record": "EARLY FLEURS-TEST DECODE, AUTHORISED BY THE OWNER MID-RUN",
+ "wall_utc": "2026-09-13T16:01:14Z",
+ "1_authorisation": {
+  "authorised_by": "owner (ehzawad), 2026-09-13, verbatim: 'whatever checkpoint we have, can you run that eval so we could see how this model is performing? I'm kind of curious'",
+  "purpose": "curiosity / early visibility of FLEURS transfer",
+  "decision_it_informs": "NONE DECLARED. The owner asked to see the number. No training, selection, scoring or publication decision was named as depending on it.",
+  "prior_advice": "I recommended waiting (~37 h) and set out the cost; the owner first agreed to wait and then asked again. This record exists because the cost is real and must not be quietly absorbed."
+ },
+ "2_deviation": {
+  "spec_clause": "SPEC 6 'Headline (one event)': decode 920 FLEURS-test recordings ONCE; 'No second decode.'",
+  "deviation": "FLEURS-test is opened DURING Phase 4, before the run completes and before any qualified selection exists.",
+  "consequence": "The registered end-of-run decode becomes the SECOND Phase-4 event. Phase 4 can no longer claim a single FLEURS evaluation untouched by mid-run feedback.",
+  "not_amended": "This does not rewrite SPEC 6. It is a recorded deviation from it."
+ },
+ "3_identity": {
+  "checkpoint": "experiments/p4/runs/N_O+macro_filtered_H120k/best/step_88000.pt",
+  "checkpoint_sha256": "31d0ce4b32b5f3698f7ecd88f94f24a9fbe9402d1c218ddcce26347528bb9784",
+  "update": 88000,
+  "why_this_one": "the registered selection at the time of authorisation (p4_common.select_best over all eligible validations)",
+  "dev_S_at_this_checkpoint": 17.26219460241682,
+  "dev_D_wer_frozen": 0.17168,
+  "run_is_incomplete": "yes - 88,000 of 120,000 updates; no qualification record exists",
+  "sealed_panel": "/mnt/sdb/arafat/ehz/llm/bench_assets/eval_fleurs_bn (split==test, 920 recordings / 349 sentences)",
+  "harness": "bench_assets/asr_core.py, sha256 f894ef44ae4834fc80878f8b206e65e8321a0014807559494af0eb8880638a18, byte-identical to github.com/ehzawad/bengali-asr-benchmark"
+ },
+ "4_exposure": {
+  "who_sees_what": "owner and assistant see aggregate WER/CER and may inspect predictions",
+  "fixed_regardless_of_result": [
+   "the training run continues unchanged to H=120,000",
+   "the selection rule (lowest eligible S, 0.05 pp tie to the earlier checkpoint) is NOT revised",
+   "the guard thresholds are NOT revised",
+   "the registered 110k->120k final-window check is NOT revised"
+  ],
+  "may_change": "nothing has been declared. If this number does come to influence a later decision, that must be written down here."
+ },
+ "5_reporting_rule": {
+  "disclose_regardless": "this result is preserved and disclosed on the model card and in the phase report whether it is favourable or not",
+  "event_budget": "2 Phase-4 FLEURS events: this one, and the registered end-of-run decode on the qualified selection",
+  "mechanism": "p4_final_test mints experiments/p4/final_test_event.json; the end-of-run decode will therefore require P4_FINAL_TEST_SECOND_EVENT=1, which makes the second event explicit rather than silent"
+ },
+ "comparators_on_the_same_920_rows": {
+  "hishab_conformer_large": 0.14374190642418783,
+  "whisper_medium_sayedshaun": 0.16227,
+  "phase1_ehzawad_fastconformer": 0.1964979449355329,
+  "wav2vec2_sayedshaun": 0.20641,
+  "hishab_fastconformer": 0.36214,
+  "phase2_target_in_spec": 0.1654,
+  "note": "SPEC 6 quotes Phase-1 as 0.19672; the benchmark summary records 0.1964979449355329 for the test split. Unreconciled; see the open item."
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "retained_rows": 1265884,
+ "retained_rows_in_pcm_train_x_panel": 0,
+ "retained_rows_in_fingerprint_matches": 0,
+ "retained_rows_in_text_candidates": 0,
+ "retained_pcm_hash_equal_to_any_panel_or_fleurs": 0,
+ "M_rows_with_old_corpus_fingerprint_match": 0,
+ "fleurs_pcm_hashed": 1322,
+ "PASS": true,
+ "retained_pcm_identical_to_fleurs": 0
+}

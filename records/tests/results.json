@@ -1,0 +1,792 @@
+{
+ "checks": [
+  {
+   "name": "gate20k_thresholds_are_council_F's",
+   "passed": true,
+   "evidence": "S(P1)=21.0296 - 1.5 = 19.5296 vs ruling 19.53; D(P1)=20.35 - 1.0 = 19.35 vs ruling 19.35"
+  },
+  {
+   "name": "gate20k_passes_when_all_three_conditions_hold",
+   "passed": true,
+   "evidence": "S=19.4 D=19.30% guards=True -> exit 0, STOP file False"
+  },
+  {
+   "name": "gate20k_fails_on_S_alone",
+   "passed": true,
+   "evidence": "S=19.54 > limit 19.5296; exit 4 (STOP_EXIT=4); record=20,000-step progress gate failed (SPEC \u00a74, \u00a78k Q8)"
+  },
+  {
+   "name": "gate20k_fails_on_D_alone",
+   "passed": true,
+   "evidence": "D=19.40% > 19.35%; exit 4; record D_pp=19.4 limit 19.35"
+  },
+  {
+   "name": "gate20k_fails_on_guards_alone",
+   "passed": true,
+   "evidence": "conversational 22.10% > limit 22.075%; S=19.4 D=19.30% still pass; exit 4"
+  },
+  {
+   "name": "gate20k_failure_is_a_STOP_record_not_an_ABORT",
+   "passed": true,
+   "evidence": "STOP written, ABORT absent, exit codes STOP=4 ABORT=3"
+  },
+  {
+   "name": "gate20k_does_not_fire_at_19999",
+   "passed": true,
+   "evidence": "S=25.0 (far above 19.530) at update 19999 -> exit 0"
+  },
+  {
+   "name": "gate20k_does_not_fire_at_20001",
+   "passed": true,
+   "evidence": "S=25.0 (far above 19.530) at update 20001 -> exit 0"
+  },
+  {
+   "name": "gate20k_validation_is_forced_even_with_val_every_0",
+   "passed": true,
+   "evidence": "should_validate(20000, val_every=0, stop_at=150000)=True; val_every=3000 -> True; a pilot with stop_at=8000 -> False"
+  },
+  {
+   "name": "gate20k_refuses_an_O_ref_shaped_comparator",
+   "passed": true,
+   "evidence": "baseline without init A's sha256 -> exit 4: 20k progress gate comparator rejected: oref.json was not measured from init A: init_sha256"
+  },
+  {
+   "name": "comparator_conversational_limit_is_22.075",
+   "passed": true,
+   "evidence": "P1 conversational 21.575% + 0.5 pp = 22.075% (SPEC \u00a78k Q2)"
+  },
+  {
+   "name": "comparator_conversational_guard_bites_at_the_limit",
+   "passed": true,
+   "evidence": "22.074% eligible=True, 22.076% eligible=False"
+  },
+  {
+   "name": "comparator_matches_council_F_on_MaCro's_21.892",
+   "passed": true,
+   "evidence": "21.892% eligible=True (SPEC \u00a78k Q2 says so); 22.000% eligible=True under P1 (+0.5 = 22.075) but would fail an O_ref rule (21.47 + 0.5 = 21.97)"
+  },
+  {
+   "name": "comparator_source_guard_is_P1_plus_1.0pp",
+   "passed": true,
+   "evidence": "every D source at P1 +0.99 pp eligible; at P1 +1.01 pp ineligible (limit 1.0 pp)"
+  },
+  {
+   "name": "comparator_empty_rate_guard_is_0.1_percent",
+   "passed": true,
+   "evidence": "0.100% eligible, 0.110% ineligible (limit 0.1%)"
+  },
+  {
+   "name": "comparator_provenance_check_rejects_a_non_init_A_baseline",
+   "passed": true,
+   "evidence": "baseline_p1.json was not measured from init A: init_sha256 '' does not start with '61362a36'. The continuation"
+  },
+  {
+   "name": "comparator_accepts_the_real_baseline_p1.json",
+   "passed": true,
+   "evidence": "init_sha256=61362a36\u2026 D=0.20348 S=21.0296"
+  },
+  {
+   "name": "eligibility_a_failing_guard_does_not_reset_plateau_patience",
+   "passed": true,
+   "evidence": "S fell 21.00 -> 19.00 (2.00 pp, ten times the 0.20 pp reset) but the conversational guard failed: anchor stayed 21.0, nonreset 0 -> 1"
+  },
+  {
+   "name": "eligibility_an_ineligible_S_does_not_become_best_eligible",
+   "passed": true,
+   "evidence": "best_eligible_s=21.0 (the ineligible 19.00 was not adopted)"
+  },
+  {
+   "name": "eligibility_a_passing_guard_does_reset_it",
+   "passed": true,
+   "evidence": "eligible S 20.79 <= anchor 21.00 - 0.20 -> anchor 20.79, nonreset 0"
+  },
+  {
+   "name": "eligibility_an_ineligible_checkpoint_is_never_selected",
+   "passed": true,
+   "evidence": "history [(21.0, 50000, True), (19.0, 52000, False)] -> select_best=(21.0, 50000)"
+  },
+  {
+   "name": "eligibility_no_eligible_checkpoint_means_no_selection",
+   "passed": true,
+   "evidence": "select_best over ineligible-only history returns None, not a checkpoint the guards rejected"
+  },
+  {
+   "name": "plateau_constants_are_council_F's",
+   "passed": true,
+   "evidence": "anchor 50000, 10 non-reset validations, 0.2 pp cumulative, earliest 70000 (SPEC \u00a74 / \u00a78k Q4)"
+  },
+  {
+   "name": "plateau_old_rule_is_gone",
+   "passed": true,
+   "evidence": "p4_common no longer defines PLATEAU_FROM (30,000) or PLATEAU_VALIDATIONS (5)"
+  },
+  {
+   "name": "plateau_not_armed_before_50000",
+   "passed": true,
+   "evidence": "11 flat validations 30,000-52,000: exit 0, anchor armed at 50,000 to 21.0, counter 1 (the old rule would have stopped at 40,000)"
+  },
+  {
+   "name": "plateau_reset_is_cumulative_against_the_anchor",
+   "passed": true,
+   "evidence": "S 21.00, 20.85, 20.70, 20.55 in 0.15 pp steps; every step is smaller than the 0.20 pp reset, so a best-so-far comparison never resets on this sequence. Against the sticky anchor the CUMULATIVE 21.00 -> 20.70 does: AT 50000 S=21.0 anchor=21.0 n=0 | AT 52000 S=20.85 anchor=21.0 n=1 | AT 54000 S=20.7 anchor=20.7 n=0 | AT 56000 S=20.55 anchor=20.7 n=1"
+  },
+  {
+   "name": "plateau_stops_after_10_nonreset_validations_at_70000",
+   "passed": true,
+   "evidence": "flat S 21.00 from 50,000: last survived validation 68000, STOP at update 70000 with 10 non-reset validations"
+  },
+  {
+   "name": "plateau_never_stops_before_update_70000",
+   "passed": true,
+   "evidence": "10 non-reset validations reached by update 51,000 (--val-at cadence): exit 0, SURVIVED n=10 last=51000 - no STOP, because SPEC \u00a74 registers the earliest stop as 70,000"
+  },
+  {
+   "name": "retention_keeps_the_best_eligible_against_three_lower_S_rivals",
+   "passed": true,
+   "evidence": "best/ = ['step_10000.pt', 'step_20000.pt', 'step_22000.pt', 'step_24000.pt'], ckpt/ = ['step_22000.pt', 'step_24000.pt']; selection = (20.0, 10000)"
+  },
+  {
+   "name": "retention_defect_reproduced_on_the_superseded_code",
+   "passed": true,
+   "evidence": "pre-fix retain() left best/ = ['step_20000.pt', 'step_22000.pt', 'step_24000.pt'] and ckpt/ = ['step_22000.pt', 'step_24000.pt'] - the best eligible checkpoint step_10000.pt is GONE"
+  },
+  {
+   "name": "retention_tie_inside_0.05pp_resolves_to_the_earlier_checkpoint",
+   "passed": true,
+   "evidence": "S 20.50 @60,000 vs 20.47 @80,000 (0.03 pp apart) -> (20.5, 60000); sorted() by (S, update) would return (20.47, 80000)"
+  },
+  {
+   "name": "retention_tie_outside_0.05pp_resolves_to_the_lower_S",
+   "passed": true,
+   "evidence": "S 20.50 @60,000 vs 20.40 @80,000 (0.10 pp apart) -> (20.4, 80000)"
+  },
+  {
+   "name": "retention_tie_band_is_measured_from_the_best_not_chained",
+   "passed": true,
+   "evidence": "20.60 / 20.56 / 20.52: the band is [20.52, 20.57], so 20.60 is out and the earliest inside it wins -> (20.56, 20000)"
+  },
+  {
+   "name": "retention_selection_survives_40_rotations",
+   "passed": true,
+   "evidence": "40 validations, keep_last=2 keep_best=3; selection = S 19.5 @14000; on disk = True; best/ = ['step_14000.pt', 'step_20000.pt', 'step_26000.pt', 'step_32000.pt', 'step_38000.pt', 'step_50000.pt', 'step_56000.pt', 'step_62000.pt', 'step_74000.pt', 'step_80000.pt']"
+  },
+  {
+   "name": "retention_milestones_are_never_rotated",
+   "passed": true,
+   "evidence": "milestones/ = ['step_20000.pt', 'step_40000.pt', 'step_8000.pt', 'step_80000.pt']"
+  },
+  {
+   "name": "resume_checkpoint_carries_H_150000",
+   "passed": true,
+   "evidence": "checkpoint horizon=150000, registered H=150000"
+  },
+  {
+   "name": "resume_checkpoint_carries_optimizer_and_sampler_and_RNG",
+   "passed": true,
+   "evidence": "optimizer state entries=2, rng keys=['cuda', 'numpy', 'python', 'torch'], sampler cursor kept_batches=123455"
+  },
+  {
+   "name": "resume_sampler_cursor_is_the_loop_count_minus_the_prefetch_lead",
+   "passed": true,
+   "evidence": "consumed=123,456 -> kept_batches=123,455 with the last microbatch's cut ids stored for the resume handshake (tools/p3_train docstring)"
+  },
+  {
+   "name": "resume_scheduler_position_is_a_pure_function_of_update_and_H",
+   "passed": true,
+   "evidence": "lr_at(60000, H from the checkpoint) == lr_at(60000); lr_at(7999) reproduces the LR recorded at update 8000 of the live runs O_A5000 and pilot_O+macro_filtered (0.000198967465612861)"
+  },
+  {
+   "name": "resume_RNG_restore_reproduces_the_stream",
+   "passed": true,
+   "evidence": "torch.randn(4) before=[0.73763, 1.94593, -0.69954, -1.3023] after restore=[0.73763, 1.94593, -0.69954, -1.3023]"
+  },
+  {
+   "name": "resume_restores_the_selection_state",
+   "passed": true,
+   "evidence": "sel round-tripped {'best_eligible_s': 20.4, 'anchor': 20.6, 'nonreset': 3}; history 3 entries, selection (20.4, 60000)"
+  },
+  {
+   "name": "resume_legacy_history_without_a_guard_record_is_not_selectable",
+   "passed": true,
+   "evidence": "a pre-eligibility (S, update) pair restores as NOT eligible, so a checkpoint whose guards were never recorded cannot be selected"
+  },
+  {
+   "name": "resume_refuses_a_different_horizon",
+   "passed": true,
+   "evidence": "H=100,000 checkpoint against the H=150,000 config -> exit 3 (ABORT_EXIT=3) and a recorded ABORT: resume refused: checkpoint horizon does not match the config; a resume"
+  },
+  {
+   "name": "resume_refuses_a_different_effective_batch",
+   "passed": true,
+   "evidence": "effective_batch 128 vs the registered 252 -> exit 3"
+  },
+  {
+   "name": "resume_accepts_a_matching_checkpoint",
+   "passed": true,
+   "evidence": "H=150,000 / effective batch 252 -> exit 0"
+  },
+  {
+   "name": "resume_accepts_a_live_run_checkpoint",
+   "passed": null,
+   "evidence": "skipped: set P4_LIVE_CKPT to a runs/<run>/ckpt/step_*.pt path"
+  },
+  {
+   "name": "supervisor_block_located_in_the_real_file",
+   "passed": true,
+   "evidence": "experiments/p4/run_supervised.sh lines 189-211 extracted at run time (23 lines), containing the STOP and ABORT cases"
+  },
+  {
+   "name": "supervisor_does_not_restart_a_terminal_gate_STOP",
+   "passed": true,
+   "evidence": "STOP record {\"stop\": \"20,000-step progress gate failed (SPEC \\u00a74, \\u00a78k Q8)\", \"wall_u\u2026 -> supervisor log: 2026-09-15T08:29:19Z TERMINAL STOP recorded (20,000-step progress gate failed (SPEC \u00a74, \u00a78k Q8)) at update 137"
+  },
+  {
+   "name": "supervisor_does_not_restart_a_terminal_plateau_STOP",
+   "passed": true,
+   "evidence": "plateau STOP at update 70000 -> 2026-09-15T08:29:19Z TERMINAL STOP recorded (plateau: 10 consecutive validations without a 0.2 pp cumulative i"
+  },
+  {
+   "name": "supervisor_does_not_restart_a_watchdog_STOP",
+   "passed": true,
+   "evidence": "2026-09-15T08:29:20Z TERMINAL STOP recorded (reserved memory over the 13.0 GiB watchdog (SPEC \u00a74, \u00a78i)) at upd"
+  },
+  {
+   "name": "supervisor_resumes_a_graceful_stop",
+   "passed": true,
+   "evidence": "STOP {\"reason\": \"graceful_stop\"} -> the block falls through to the re-queue path (CONTINUE printed)"
+  },
+  {
+   "name": "supervisor_resumes_an_infrastructure_ABORT",
+   "passed": true,
+   "evidence": "ABORT 'CUDA OOM' -> requeued and the record consumed: 2026-09-15T08:29:20Z infrastructure ABORT (CUDA OOM CUDA out of memory. Tried to allocate 512.00 MiB) at updat"
+  },
+  {
+   "name": "supervisor_does_not_restart_a_numerical_ABORT",
+   "passed": true,
+   "evidence": "2026-09-15T08:29:20Z TERMINAL ABORT (non-finite loss loss=nan at update 137000) at update 137000: supervisor e"
+  },
+  {
+   "name": "supervisor_treats_an_unparsable_STOP_as_terminal",
+   "passed": true,
+   "evidence": "two appended JSON records make json.load fail; the case falls to *) which exits without restarting - the safe direction"
+  },
+  {
+   "name": "startup_refuses_a_terminal_STOP_gate",
+   "passed": true,
+   "evidence": "exit 5, STOP file survived=True: 2026-09-15T08:29:20Z REFUSING TO START: terminal STOP recorded (20,000-step progress gate failed (SPEC \u00a74)). The protoco"
+  },
+  {
+   "name": "startup_refuses_a_terminal_STOP_plateau",
+   "passed": true,
+   "evidence": "exit 5, STOP file survived=True: 2026-09-15T08:29:20Z REFUSING TO START: terminal STOP recorded (plateau: 10 consecutive validations). The protocol ended"
+  },
+  {
+   "name": "startup_refuses_a_terminal_STOP_unparsable",
+   "passed": true,
+   "evidence": "exit 5, STOP file survived=True: 2026-09-15T08:29:20Z REFUSING TO START: terminal STOP recorded (unparsable). The protocol ended this run; restarting it "
+  },
+  {
+   "name": "startup_refuses_a_numerical_ABORT",
+   "passed": true,
+   "evidence": "exit 5: 2026-09-15T08:29:20Z REFUSING TO START: terminal ABORT recorded (non-finite loss loss=nan at update 137000). The protoco"
+  },
+  {
+   "name": "startup_does_not_refuse_an_infrastructure_ABORT",
+   "passed": true,
+   "evidence": "an OOM ABORT is resumable, so the supervisor goes on to wait for a card instead of refusing (exit None)"
+  },
+  {
+   "name": "startup_does_not_refuse_a_graceful_stop",
+   "passed": true,
+   "evidence": "a hand-over record is resumable (exit None); it is consumed by the launch path, which this case cannot reach"
+  },
+  {
+   "name": "startup_allows_a_clean_run",
+   "passed": true,
+   "evidence": "no STOP and no ABORT -> waits for a card (exit None)"
+  },
+  {
+   "name": "launch_path_only_consumes_a_graceful_stop",
+   "passed": true,
+   "evidence": "the unconditional `rm -f .../STOP` before a launch is gone; the record is deleted only when its reason is graceful_stop"
+  },
+  {
+   "name": "gate_boundary_S_19_5296_passes",
+   "passed": true,
+   "evidence": "S=19.5296 vs limit 19.5296, D=19.35 -> exit 0"
+  },
+  {
+   "name": "gate_boundary_S_19_5297_fails",
+   "passed": true,
+   "evidence": "S=19.5297 vs limit 19.5296, D=19.35 -> exit 4"
+  },
+  {
+   "name": "gate_boundary_S_19_53_fails",
+   "passed": true,
+   "evidence": "S=19.53 vs limit 19.5296, D=19.35 -> exit 4"
+  },
+  {
+   "name": "gate_boundary_D_0_1935_passes",
+   "passed": true,
+   "evidence": "D=19.350 vs limit 19.35 (binary 19.349999999999998) -> exit 0"
+  },
+  {
+   "name": "gate_boundary_D_0_19351_fails",
+   "passed": true,
+   "evidence": "D=19.351 vs limit 19.35 (binary 19.349999999999998) -> exit 4"
+  },
+  {
+   "name": "gate_pass_writes_a_durable_record",
+   "passed": true,
+   "evidence": "GATE20K={'result': 'pass', 'update': 20000, 'S_pp': 19.4, 'S_limit_pp': 19.5296, 'D_pp': 19.3, 'D_limit_pp': 19.35, 'guards_pass': True, 'wall_utc': '2026-09-15T08:29:44Z'}; sel.gate20k=pass"
+  },
+  {
+   "name": "resume_replay_reuses_the_existing_record_without_decoding",
+   "passed": true,
+   "evidence": "decode calls=[]; GATE20K exists=True; hist=[(19.4, 20000, True)]"
+  },
+  {
+   "name": "resume_replay_decodes_the_resumed_state_when_no_record_exists",
+   "passed": true,
+   "evidence": "decode calls=[20000]; GATE20K exists=True"
+  },
+  {
+   "name": "resume_replay_gate_fail_is_terminal",
+   "passed": true,
+   "evidence": "exit 4; STOP=20,000-step progress gate failed (SPEC \u00a74, \u00a78k Q8); GATE20K absent=True"
+  },
+  {
+   "name": "fresh_supervisor_stays_stopped_after_a_replayed_gate_fail",
+   "passed": true,
+   "evidence": "supervisor exit 5: 2026-09-15T08:29:45Z REFUSING TO START: terminal STOP recorded (20,000-step progress gate failed (SP"
+  },
+  {
+   "name": "resume_replay_owes_nothing_at_a_non_validation_step",
+   "passed": true,
+   "evidence": "update 20500 -> replayed=False, decode calls=[]"
+  },
+  {
+   "name": "resume_replay_restores_a_lost_plateau_tick",
+   "passed": true,
+   "evidence": "nonreset 2 -> 3, anchor 19.9 (S 20.00 does not beat 19.90 by 0.20)"
+  },
+  {
+   "name": "resume_invariant_refuses_past_20k_without_a_recorded_pass",
+   "passed": true,
+   "evidence": "exit 3 (ABORT_EXIT=3); ABORT=resume refused: update > 20,000 with no recorded 20,000 progress-gate "
+  },
+  {
+   "name": "supervisor_treats_the_gate_invariant_ABORT_as_terminal",
+   "passed": true,
+   "evidence": "supervisor exit 5"
+  },
+  {
+   "name": "resume_invariant_accepts_a_GATE20K_file",
+   "passed": true,
+   "evidence": "exit 0"
+  },
+  {
+   "name": "resume_invariant_accepts_the_checkpointed_sel_flag",
+   "passed": true,
+   "evidence": "exit 0"
+  },
+  {
+   "name": "resume_invariant_inert_for_a_pilot",
+   "passed": true,
+   "evidence": "update 8000, stop_at 8000 -> exit 0"
+  },
+  {
+   "name": "resume_invariant_inert_at_exactly_20k",
+   "passed": true,
+   "evidence": "update 20000, stop_at 150000 -> exit 0"
+  },
+  {
+   "name": "resume_invariant_inert_below_20k",
+   "passed": true,
+   "evidence": "update 18000, stop_at 150000 -> exit 0"
+  },
+  {
+   "name": "continuation_resume_replays_macro_8k_from_its_real_record",
+   "passed": true,
+   "evidence": "S_pp=20.531 eligible=True; decode calls=[]; sel={'best_eligible_s': 20.531, 'anchor': None, 'nonreset': 0}; hist=[(20.531, 8000, True)]; STOP=False"
+  },
+  {
+   "name": "existing_val_record_refuses_duplicate_records",
+   "passed": true,
+   "evidence": "two records for 20000 -> exit 3"
+  },
+  {
+   "name": "plateau_STOP_is_a_normal_ending",
+   "passed": true,
+   "evidence": "ending=normal; reason=plateau: 10 consecutive validations without a 0.2 "
+  },
+  {
+   "name": "gate_failure_STOP_is_terminal",
+   "passed": true,
+   "evidence": "ending=terminal"
+  },
+  {
+   "name": "pilot_abort_STOP_is_terminal",
+   "passed": true,
+   "evidence": "ending=terminal; reason=panel D worse than Phase 1 by > 5 pp (SPEC \u00a75 pilo"
+  },
+  {
+   "name": "stop_rejects_an_unknown_ending_class",
+   "passed": true,
+   "evidence": "exit 99; STOP written=False"
+  },
+  {
+   "name": "init_n_schedule_matches_council_N_H120k",
+   "passed": true,
+   "evidence": "0:1.000e-05 2000:5.000e-04 40000:3.850e-04 60000:2.615e-04 100000:4.392e-05 110000:1.863e-05 120000:1.000e-05"
+  },
+  {
+   "name": "init_a_schedule_unchanged",
+   "passed": true,
+   "evidence": "A: 2.000e-04 @1k, 1.9897e-04 @8k"
+  },
+  {
+   "name": "configure_binds_schedule_to_init",
+   "passed": true,
+   "evidence": "N+SCHED_N ok=True; N+SCHED_A refused=True; A+SCHED_N refused=True"
+  },
+  {
+   "name": "init_n_is_not_subject_to_the_20k_gate",
+   "passed": true,
+   "evidence": "S=21.50 at 20k under init N -> exit 0, STOP=False, GATE20K=False"
+  },
+  {
+   "name": "init_n_is_not_subject_to_pilot_aborts",
+   "passed": true,
+   "evidence": "empties 60 %, D 30 % at 2k under init N -> exit 0"
+  },
+  {
+   "name": "init_n_has_no_plateau_stop",
+   "passed": true,
+   "evidence": "20 non-improving validations 50k-88k under init N -> exit 0, anchor stays None"
+  },
+  {
+   "name": "init_n_40k_screen_passes_on_absolute_clauses",
+   "passed": true,
+   "evidence": "S 22.00 <= 22.0296, D 21.30 <= 21.348 -> pass; no GATE20K written"
+  },
+  {
+   "name": "init_n_40k_screen_fails_on_S",
+   "passed": true,
+   "evidence": "exit 4; init-N 40,000 spending screen failed (SPEC \u00a78q/\u00a78s; ending=terminal"
+  },
+  {
+   "name": "init_n_40k_screen_fails_on_D",
+   "passed": true,
+   "evidence": "exit 4; init-N 40,000 spending screen failed (SPEC \u00a78q/\u00a78s; ending=terminal"
+  },
+  {
+   "name": "init_n_40k_screen_ignores_any_A_relative_reference",
+   "passed": true,
+   "evidence": "S 21.90 passes against the absolute 22.0296 although a 19.80 A-ref was supplied; limit recorded 22.0296"
+  },
+  {
+   "name": "fresh_start_allowed_into_an_empty_run_dir",
+   "passed": true,
+   "evidence": "nothing to lose"
+  },
+  {
+   "name": "fresh_start_refused_over_checkpoints_and_a_steps_log",
+   "passed": true,
+   "evidence": "a unit whose ExecStart predates the first checkpoint would otherwise retrain the production run from update 0 over its own artefacts"
+  },
+  {
+   "name": "fresh_start_allowed_with_resume",
+   "passed": true,
+   "evidence": "--resume auto is the fix, not the override"
+  },
+  {
+   "name": "fresh_start_override_is_explicit_and_env_gated",
+   "passed": true,
+   "evidence": "only the exact value 1 overrides"
+  },
+  {
+   "name": "fresh_start_refused_on_validation_evidence_alone",
+   "passed": true,
+   "evidence": "council Q #5: a directory with validation records but no ckpt/ or steps.jsonl used to read as fresh"
+  },
+  {
+   "name": "fresh_start_refused_over_a_terminal_stop",
+   "passed": true,
+   "evidence": "a run the protocol ended is never silently restarted from zero"
+  },
+  {
+   "name": "milestone_evidence_from_the_wrong_update_is_rejected",
+   "passed": true,
+   "evidence": "a GATE_N40 record stamped update 17 no longer authorises a resume past 40,000 (exit 3)"
+  },
+  {
+   "name": "madasr_admission_is_registered_not_inferred",
+   "passed": true,
+   "evidence": "a vanished panel R can no longer switch S's weights and manufacture ~1.5 pp"
+  },
+  {
+   "name": "a_missing_panel_makes_S_undefined_not_cheaper",
+   "passed": true,
+   "evidence": "S=20.4 with R; without R S is None (the old path would have returned 18.9)"
+  },
+  {
+   "name": "a_missing_n40_policy_is_refused_not_defaulted",
+   "passed": true,
+   "evidence": "an absent n40_policy raises (the trainer turns it into a recorded ABORT, never an uncaught raise that the supervisor re-queues forever)"
+  },
+  {
+   "name": "policy_generations_pin_the_semantics",
+   "passed": true,
+   "evidence": "'diagnostic' meant two different things in one evening; the generation says which"
+  },
+  {
+   "name": "only_listed_policy_migrations_are_authorised",
+   "passed": true,
+   "evidence": "terminal->diagnostic: SPEC 8w.2 (councils O+P), adopted 2026-09-09 at update 7,212; diagnostic->terminal: None (unauthorised)"
+  },
+  {
+   "name": "a_legacy_bare_name_resolves_through_the_frozen_map",
+   "passed": true,
+   "evidence": "never through a 'latest version' lookup, which would silently adopt a bump"
+  },
+  {
+   "name": "n40_policy_rejects_an_unknown_value",
+   "passed": true,
+   "evidence": "only 'terminal'/'diagnostic' are accepted"
+  },
+  {
+   "name": "n40_diagnostic_miss_is_recorded_and_does_not_stop",
+   "passed": true,
+   "evidence": "S 26.00 / D 26.00 -> exit 0, result=missed, former_N40_satisfied=False, STOP written=False"
+  },
+  {
+   "name": "the_same_value_under_the_terminal_policy_still_ends_phase_4",
+   "passed": true,
+   "evidence": "exit 4; ending=terminal - the THRESHOLDS did not move, only the consequence"
+  },
+  {
+   "name": "n40_diagnostic_met_uses_the_unchanged_thresholds",
+   "passed": true,
+   "evidence": "S 22.00 vs 22.0296, D 21.30 vs 21.348 -> met"
+  },
+  {
+   "name": "council_Q_counterexample_no_longer_terminates",
+   "passed": true,
+   "evidence": "D 21.050 at 40k after a 21.000 minimum through 20k -> continues; the withdrawn floor would have killed a run holding a qualifying 38k checkpoint"
+  },
+  {
+   "name": "no_terminal_early_performance_rule_remains_for_N",
+   "passed": true,
+   "evidence": "the only mention of the floor left in the gate is the withdrawal note"
+  },
+  {
+   "name": "delta_40_is_computed_and_is_only_a_flag",
+   "passed": true,
+   "evidence": "median(19.60,19.40,21.05)=19.60 minus median(22.00,21.00,21.60)=21.60 -> -2.0 pp, flag=False"
+  },
+  {
+   "name": "delta_40_flags_a_flat_trajectory_without_stopping",
+   "passed": true,
+   "evidence": "delta_40=1.2 pp >= 0 -> warning printed, exit 0, no STOP"
+  },
+  {
+   "name": "val_history_refuses_a_negative_update_record",
+   "passed": true,
+   "evidence": "an `update: -1, D: 0` record could poison a minimum to zero; it now raises"
+  },
+  {
+   "name": "N_at_40500_diagnostic_with_a_MISSED_record_is_accepted",
+   "passed": true,
+   "evidence": "exit 0 (wanted 0)"
+  },
+  {
+   "name": "N_at_40500_diagnostic_with_a_MET_record_is_accepted",
+   "passed": true,
+   "evidence": "exit 0 (wanted 0)"
+  },
+  {
+   "name": "N_at_40500_diagnostic_with_NO_record_is_still_refused",
+   "passed": true,
+   "evidence": "exit 3 (wanted 3)"
+  },
+  {
+   "name": "N_at_40500_terminal_with_a_MISSED_record_is_refused",
+   "passed": true,
+   "evidence": "exit 3 (wanted 3)"
+  },
+  {
+   "name": "a_bare_sel_flag_without_a_record_no_longer_authorises_a_resume",
+   "passed": true,
+   "evidence": "sel says 'missed' but no GATE_N40 file exists -> exit 3"
+  },
+  {
+   "name": "milestone_evidence_from_another_run_uid_is_rejected",
+   "passed": true,
+   "evidence": "record carries another run's uid -> exit 3"
+  },
+  {
+   "name": "init_n_resume_replays_the_owed_40000_record",
+   "passed": true,
+   "evidence": "record reused, GATE_N40 written=True"
+  },
+  {
+   "name": "init_n_resume_replays_the_owed_60000_record",
+   "passed": true,
+   "evidence": "record reused, GATE_N60 written=True"
+  },
+  {
+   "name": "init_n_60k_milestone_met_is_recorded",
+   "passed": true,
+   "evidence": "S 19.40 D 19.30 guards ok -> met"
+  },
+  {
+   "name": "init_n_60k_milestone_missed_on_S_is_reported_not_terminal",
+   "passed": true,
+   "evidence": "S 19.54 -> exit 0, recorded missed, STOP=False"
+  },
+  {
+   "name": "init_n_60k_milestone_missed_on_guards_is_reported_not_terminal",
+   "passed": true,
+   "evidence": "conv 22.10 -> exit 0, recorded missed"
+  },
+  {
+   "name": "init_n_later_eligible_checkpoint_selectable_after_a_missed_60k",
+   "passed": true,
+   "evidence": "best_eligible_s after 62k = 19.3, 60k recorded missed"
+  },
+  {
+   "name": "resume_invariant_N_at_20500_without_GATE20K_is_accepted",
+   "passed": true,
+   "evidence": "exit 0 (expected 0)"
+  },
+  {
+   "name": "resume_invariant_N_at_40500_without_GATE_N40_is_refused",
+   "passed": true,
+   "evidence": "exit 3 (expected 3)"
+  },
+  {
+   "name": "resume_invariant_N_at_40500_with_its_record_is_accepted",
+   "passed": true,
+   "evidence": "exit 0 (expected 0)"
+  },
+  {
+   "name": "resume_invariant_N_at_60500_without_GATE_N60_is_ACCEPTED_(60k_is_a_report)",
+   "passed": true,
+   "evidence": "exit 0 (expected 0)"
+  },
+  {
+   "name": "resume_invariant_N_at_60500_with_a_missed_60k_is_accepted",
+   "passed": true,
+   "evidence": "exit 0 (expected 0)"
+  },
+  {
+   "name": "resume_invariant_A_at_20500_without_GATE20K_is_still_refused",
+   "passed": true,
+   "evidence": "exit 3 (expected 3)"
+  },
+  {
+   "name": "resume_invariant_N_accepts_a_GATE_N40_file",
+   "passed": true,
+   "evidence": "exit 0"
+  },
+  {
+   "name": "should_validate_forces_N_gates_and_not_20k",
+   "passed": true,
+   "evidence": "N: 40k/60k forced, 20k not; A: 20k forced, 40k not (with --val-every 0)"
+  },
+  {
+   "name": "resume_refuses_an_init_mismatch",
+   "passed": true,
+   "evidence": "N checkpoint under an A config -> exit 3"
+  },
+  {
+   "name": "resume_accepts_a_matching_init",
+   "passed": true,
+   "evidence": "A checkpoint under an A config -> exit 0"
+  },
+  {
+   "name": "phase1_curve_artefact_exists",
+   "passed": true,
+   "evidence": "39 validations"
+  },
+  {
+   "name": "phase1_curve_matches_tfevents",
+   "passed": true,
+   "evidence": "39 points re-extracted, max delta 0.00e+00"
+  },
+  {
+   "name": "phase1_u2000_is_56pt55",
+   "passed": true,
+   "evidence": "update 2,000 -> 56.5503 (the corrupted curve said 40.3)"
+  },
+  {
+   "name": "phase1_best_is_20pt826_at_35000",
+   "passed": true,
+   "evidence": "best 20.8259 at update 35000"
+  },
+  {
+   "name": "corrupted_curve_reproduced_as_improvement_envelope",
+   "passed": true,
+   "evidence": "19 improvement events after the pre-resume point"
+  },
+  {
+   "name": "true_curve_is_not_the_envelope",
+   "passed": true,
+   "evidence": "per-validation series differs from the envelope"
+  },
+  {
+   "name": "no_builder_rebuilds_the_curve_from_lightning_logs",
+   "passed": true,
+   "evidence": "no re.findall over 'New best score'"
+  },
+  {
+   "name": "thresholds_derive_from_measured_baseline_not_the_curve",
+   "passed": true,
+   "evidence": "D 21.348 = 20.348+1.0, S 22.0296 = 21.0296+1.0"
+  },
+  {
+   "name": "exact_S_matches_council_R_to_ten_places",
+   "passed": true,
+   "evidence": "exact S 18.6129335071 / 18.5629982031"
+  },
+  {
+   "name": "the_rounded_metric_splits_a_tie_the_exact_one_keeps",
+   "passed": true,
+   "evidence": "exact \u0394S 0.049935304 < 0.05 (tied, earlier wins); recorded \u0394S 0.050400000 > 0.05 (splits, later wins)"
+  },
+  {
+   "name": "select_best_on_exact_S_keeps_the_earlier_checkpoint",
+   "passed": true,
+   "evidence": "exact selects 100,000; rounded selects 102,000 - and retain would then delete every copy of 100,000, which no preserved hypothesis can rebuild"
+  },
+  {
+   "name": "qualification_flips_on_the_discarded_precision",
+   "passed": true,
+   "evidence": "exact S 22.029658047728 FAILS vs 22.0296; recorded 22.0296 PASSES"
+  },
+  {
+   "name": "records_without_counts_fall_back_and_do_not_raise",
+   "passed": true,
+   "evidence": "legacy record -> S 18.6131 (== the recorded 18.6131), no exception"
+  },
+  {
+   "name": "dropping_registered_sources_no_longer_passes_the_guards",
+   "passed": true,
+   "evidence": "four of five D sources removed -> pass=False, non-evaluable ['D/b', 'D/c', 'D/d', 'D/e']"
+  },
+  {
+   "name": "a_panel_with_zero_reference_words_cannot_score_a_pass",
+   "passed": true,
+   "evidence": "exact_wer raises PanelIntegrityError; guards() reports it as non-evaluable, not a pass"
+  }
+ ],
+ "passed": 155,
+ "failed": 0,
+ "skipped": 1,
+ "code_sha256": {
+  "p4_train.py": "7ea8604df88f0f96a1fcb503db394a08c9bf6853e924ffd2296eb8c173ac09b1",
+  "p4_common.py": "5efe7e51e26dc2ec410252f9592ef4c9deddebf47f890151af7622716f7a7ccc"
+ },
+ "supervisor_sha256": "285ef2eec339fb3e0c2d3d653dabf5f92aad602753473f8b39340ed9d63533c8"
+}

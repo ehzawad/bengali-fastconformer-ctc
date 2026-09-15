@@ -1,0 +1,53 @@
+{
+ "macro_filtered": {
+  "random": {
+   "n": 1000,
+   "cd": 2,
+   "cat": 0
+  },
+  "board": {
+   "n": 120,
+   "cd": 0,
+   "cat": 0
+  },
+  "combined_cd_rate": 0.0018,
+  "combined_cat_rate": 0.0,
+  "cd_limit": 0.0426,
+  "cat_limit": 0.007,
+  "pass": true
+ },
+ "madasr": {
+  "random": {
+   "n": 1000,
+   "cd": 6,
+   "cat": 0
+  },
+  "board": {
+   "n": 50,
+   "cd": 0,
+   "cat": 0
+  },
+  "combined_cd_rate": 0.0057,
+  "combined_cat_rate": 0.0,
+  "cd_limit": 0.0426,
+  "cat_limit": 0.007,
+  "pass": true
+ },
+ "vaani": {
+  "random": {
+   "n": 1000,
+   "cd": 18,
+   "cat": 0
+  },
+  "board": {
+   "n": 60,
+   "cd": 2,
+   "cat": 1
+  },
+  "combined_cd_rate": 0.0189,
+  "combined_cat_rate": 0.0009,
+  "cd_limit": 0.0426,
+  "cat_limit": 0.007,
+  "pass": true
+ }
+}

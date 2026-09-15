@@ -1,0 +1,12 @@
+{
+ "panels": [
+  "holdout",
+  "vaani_validation"
+ ],
+ "ckpt_sha256": "bea300ce4f1f1df1fa4707562ddaa7c64db6f01121ef3d64a6333635f3626572",
+ "max_decodes_per_panel": 2,
+ "reason": "Recovery repeat of two one-shot panels whose first decode (08:12Z, pid 3819109) completed but whose artefacts were lost when the tool crashed before writing (SPEC 8w.19). Same frozen, qualified checkpoint; deterministic greedy decode; no selection or tuning permitted or possible from the result. Holdout's first-decode stdout figure (frozen WER 15.01 %) is preserved and any discrepancy is disclosed without choosing the more favourable value. Option A of council AB, chosen by the owner.",
+ "approved_by": "ehzawad (owner), via the decision picker in the Claude Code session, option 'A: Recover both once'",
+ "utc": "2026-09-15T10:30:47Z",
+ "spec": "SPEC 8w.19 / 8w.20"
+}

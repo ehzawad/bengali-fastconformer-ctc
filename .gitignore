@@ -8,3 +8,4 @@ data2/
 *.nemo
 *.pt
 *.log
+!records/**

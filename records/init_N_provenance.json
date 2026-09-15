@@ -1,0 +1,11 @@
+{
+ "init_N_sha256": "1f2c819d9d418466525b45a8d5d5b1d48509ed3c1af2a63d25e35154052adf5f",
+ "params": 115600385,
+ "head_seed": 20260905,
+ "head_digest": "8d9699b8c2c55eefb6605bb38453957aaf344a99a9e5cb50d059d83a54b615ee",
+ "encoder_digest": "c849cff2bb01c809f2bdf5513f6ba19f9b9d85efe7a2c695e01aba3bfde7158e",
+ "bn_buffer_digest_at_load": "8523060740519ad1a3092afbb749d482c00f99ed5e154a69a1439f3e959e4fba",
+ "specaug_replaced_from": "2x27/10x0.05 (NVIDIA) -> registered",
+ "init_A_encoder_digest": "363cb3b49bacecc2e5924c84c625fc8a2ef6add4edec2c6497030a43aca54c24",
+ "init_A_head_digest": "e889b9b7de7ff3b07b6a1c4d55e9280d4d7fa6ab1cb6073b10600d838ddae580"
+}

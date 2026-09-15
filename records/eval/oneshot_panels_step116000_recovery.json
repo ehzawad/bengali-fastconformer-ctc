@@ -1,0 +1,183 @@
+{
+ "tool": "tools/p4/p4_panel_eval.py",
+ "spec": "experiments/p4/SPEC.md §2 (panels, S, guards), §4 (restoration)",
+ "ckpt": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/p4/runs/N_O+macro_filtered_H120k/export/step_116000.nemo",
+ "ckpt_sha256": "bea300ce4f1f1df1fa4707562ddaa7c64db6f01121ef3d64a6333635f3626572",
+ "device": "cuda",
+ "surfaces": {
+  "frozen": "tools/p3_common.frozen_norm == bench_assets/bench_score.norm (SELECTION surface, SPEC §2)",
+  "nemo_internal": "nemo word_error_rate on RAW text (Phase-1 val_wer parity)",
+  "p4_target_surface": "metric_surface(NFC(t), False) + whitespace collapse (SPEC §1 TRAINING-TARGET surface; diagnostic only)"
+ },
+ "panels": {
+  "holdout": {
+   "manifest": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/data2/holdout_corpus.json",
+   "manifest_sha256": "75e882289d2628bf7387c674dc7b4d7153b5d74d91e095c5ad7b8fc237560854",
+   "rows_registered": 6767,
+   "rows_used": 6767,
+   "role": "one-shot report",
+   "collisions": {}
+  },
+  "vaani_validation": {
+   "manifest": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/data4/vaani/manifest_validation.jsonl",
+   "manifest_sha256": "d81cd0308611c4a7b559823871909a74a6d0e41a1e324f0e488bb81a4de3f0a1",
+   "rows_registered": 10105,
+   "rows_used": 10105,
+   "role": "one-shot report",
+   "collisions": {
+    "data4/vaani/wavs_validation/IISc_VaaniProject_K_ArunachalPradesh_LowerDibangvalley_LowerDibangvalley844425030214487_042_LowerDibangvalley-SPECIFIC_0.wav": {
+     "rows": [
+      5001,
+      5014
+     ],
+     "hyps": [
+      "স্কুল স্কুলটা খুবই বড়ো স্কুল স্কুলটা হয়েছে তিনতলা স্কুল আবার নীচেও কাজ চলছে",
+      "স্কুল স্কুলটা খুবই বড়ো স্কুল স্কুলটা হয়েছে তিনতলা স্কুল আবার নীচেও কাজ চলছে"
+     ]
+    },
+    "data4/vaani/wavs_validation/IISc_VaaniProject_K_ArunachalPradesh_LowerDibangvalley_LowerDibangvalley844425030214487_056_LowerDibangvalley-SPECIFIC_0.wav": {
+     "rows": [
+      5026,
+      5029
+     ],
+     "hyps": [
+      "দল্না রয়েছে ছোটো বাচ্চাদের জন্য",
+      "দল্না রয়েছে ছোটো বাচ্চাদের জন্য"
+     ]
+    },
+    "data4/vaani/wavs_validation/IISc_VaaniProject_K_ArunachalPradesh_LowerDibangvalley_LowerDibangvalley844425030214487_058_LowerDibangvalley-SPECIFIC_0.wav": {
+     "rows": [
+      5028,
+      5054
+     ],
+     "hyps": [
+      "দুটো মানুষ বসে রয়েছে কেনার জন্য একটা মানুষ ওখানে দাঁড়িয়ে রয়েছে",
+      "দুটো মানুষ বসে রয়েছে কেনার জন্য একটা মানুষ ওখানে দাঁড়িয়ে রয়েছে"
+     ]
+    }
+   }
+  }
+ },
+ "results": {
+  "holdout": {
+   "wer_frozen": 0.15008,
+   "cer_frozen": 0.04469,
+   "ref_words_frozen": 68744,
+   "word_errors_frozen": 10317,
+   "wer_p4_target_surface": 0.14988,
+   "cer_p4_target_surface": 0.04466,
+   "ref_words_p4_target_surface": 68750,
+   "word_errors_p4_target_surface": 10304,
+   "wer_nemo_internal": 0.17765,
+   "per_source": {
+    "commonvoice": 0.10813,
+    "indicvoices": 0.15978,
+    "kathbath": 0.11767,
+    "openslr53": 0.14878,
+    "subakko": 0.15553
+   },
+   "per_source_ref_words": {
+    "commonvoice": 4467,
+    "indicvoices": 33897,
+    "kathbath": 6722,
+    "openslr53": 7770,
+    "subakko": 15888
+   },
+   "empty_hyps": 0,
+   "empty_rate": 0.0,
+   "n": 6767,
+   "wall_s": 131.3,
+   "batch_size": 32,
+   "peak_reserved_gib": 4.176
+  },
+  "vaani_validation": {
+   "wer_frozen": 0.2622,
+   "cer_frozen": 0.0857,
+   "ref_words_frozen": 110795,
+   "word_errors_frozen": 29051,
+   "wer_p4_target_surface": 0.2622,
+   "cer_p4_target_surface": 0.0857,
+   "ref_words_p4_target_surface": 110795,
+   "word_errors_p4_target_surface": 29051,
+   "wer_nemo_internal": 0.2622,
+   "per_source": {
+    "vaani_validation": 0.2622
+   },
+   "per_source_ref_words": {
+    "vaani_validation": 110795
+   },
+   "empty_hyps": 0,
+   "empty_rate": 0.0,
+   "n": 10105,
+   "wall_s": 149.7,
+   "batch_size": 32,
+   "excluding_collisions": {
+    "n": 10099,
+    "rows_excluded": 6,
+    "wer_frozen": 0.26193,
+    "wer_nemo_internal": 0.26193,
+    "wer_p4_target_surface": 0.26193
+   },
+   "peak_reserved_gib": 4.176
+  }
+ },
+ "selection_score": {
+  "S_pp": null,
+  "formula": {
+   "D": 0.6,
+   "M": 0.3,
+   "K": 0.1
+  },
+  "missing_panels": [
+   "D",
+   "M",
+   "K"
+  ],
+  "note": "S undefined: SPEC §2 weights are fixed and are never renormalised over the panels that happen to exist"
+ },
+ "dev_D_published_baselines": {
+  "phase2_qwen": 0.1703,
+  "phase1_ctc": 0.2035,
+  "hishab": 0.223
+ },
+ "scorer": {
+  "p3_common.py": {
+   "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/tools/p3_common.py",
+   "sha256": "c9db084ef0ab287453ef3b83f5cb92d7b06dffb84ef77f5e06670a49e96ac855"
+  },
+  "bn_normalize.py": {
+   "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/src/bn_normalize.py",
+   "sha256": "238364e725be1143132e8e3b32c964ba3baceb229cf3f9bca6f368f8bad1b436"
+  },
+  "p4_panel_eval.py": {
+   "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/tools/p4/p4_panel_eval.py",
+   "sha256": "9a9972af50289a167b3dd787df5b25b3e318052c0e8ce6f9fff1760ebe1098a3"
+  }
+ },
+ "limit": null,
+ "run_id": "31f7e3d47400439eaa4ebdbd2de62ecb",
+ "baseline_source": {
+  "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/p4/fixtures/p1_panel_baselines.json",
+  "sha256": "56fc9fe64381fb1e93007b9d3e08f2f71106002234426d2c397ac3420fb14612",
+  "ckpt_sha256": "61362a360e2474b814ceb1d1cc597dbbe71badd22680286cd42230bc1520e5db"
+ },
+ "guard_report": {
+  "guards": [
+   {
+    "name": "empty_rate[holdout]",
+    "pass_": true,
+    "observed": 0.0,
+    "limit": 0.001,
+    "spec": "§2 empty-output rate ≤0.1 %"
+   },
+   {
+    "name": "empty_rate[vaani_validation]",
+    "pass_": true,
+    "observed": 0.0,
+    "limit": 0.001,
+    "spec": "§2 empty-output rate ≤0.1 %"
+   }
+  ],
+  "all_pass": true
+ }
+}

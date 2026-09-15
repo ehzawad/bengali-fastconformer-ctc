@@ -1,0 +1,136 @@
+{
+ "arm": "experiments/p4/runs/pilot_O+madasr",
+ "control": "experiments/p4/runs/O_A5000",
+ "step": 8000,
+ "draws": 10000,
+ "seed": 20260905,
+ "n_sentence_clusters": 9727,
+ "m": 4,
+ "S_arm_pp": 20.08,
+ "S_control_pp": 21.073,
+ "delta_S_pp": -0.994,
+ "ci95": [
+  -1.216,
+  -0.769
+ ],
+ "simultaneous_quantile": 0.99375,
+ "simultaneous_upper_pp": -0.702,
+ "per_panel_wer_arm_vs_control": {
+  "D": [
+   20.518,
+   20.319
+  ],
+  "M": [
+   21.093,
+   20.565
+  ],
+  "R": [
+   20.237,
+   32.763
+  ],
+  "K": [
+   15.266,
+   14.928
+  ]
+ },
+ "guards": {
+  "D_vs_control_pp": 0.199,
+  "conversational_vs_control_pp": -0.016,
+  "per_source_vs_control_pp": {
+   "commonvoice": -0.086,
+   "indicvoices": 0.12,
+   "kathbath": 0.322,
+   "openslr53": 0.207,
+   "subakko": 0.48
+  },
+  "empty_rate": 0.00019
+ },
+ "guards_pass": true,
+ "empty_rate_all_panels": {
+  "D": 0.00019,
+  "M": 0.0,
+  "R": 0.0,
+  "K": 0.0
+ },
+ "hypothesis_ordering_proof": {
+  "tolerance_pp": 0.005,
+  "arm": {
+   "D": {
+    "recomputed_pp": 20.5178,
+    "trainer_val_jsonl_pp": 20.518,
+    "abs_diff_pp": 0.00016,
+    "ok": true,
+    "empties_recomputed": 1,
+    "empties_trainer": 1
+   },
+   "M": {
+    "recomputed_pp": 21.093,
+    "trainer_val_jsonl_pp": 21.093,
+    "abs_diff_pp": 5e-05,
+    "ok": true
+   },
+   "R": {
+    "recomputed_pp": 20.2369,
+    "trainer_val_jsonl_pp": 20.237,
+    "abs_diff_pp": 6e-05,
+    "ok": true
+   },
+   "K": {
+    "recomputed_pp": 15.2657,
+    "trainer_val_jsonl_pp": 15.266,
+    "abs_diff_pp": 0.00032,
+    "ok": true
+   }
+  },
+  "control": {
+   "D": {
+    "recomputed_pp": 20.3185,
+    "trainer_val_jsonl_pp": 20.319,
+    "abs_diff_pp": 0.00047,
+    "ok": true,
+    "empties_recomputed": 1,
+    "empties_trainer": 1
+   },
+   "M": {
+    "recomputed_pp": 20.5651,
+    "trainer_val_jsonl_pp": 20.565,
+    "abs_diff_pp": 0.00012,
+    "ok": true
+   },
+   "R": {
+    "recomputed_pp": 32.7629,
+    "trainer_val_jsonl_pp": 32.763,
+    "abs_diff_pp": 8e-05,
+    "ok": true
+   },
+   "K": {
+    "recomputed_pp": 14.9281,
+    "trainer_val_jsonl_pp": 14.928,
+    "abs_diff_pp": 0.00011,
+    "ok": true
+   }
+  }
+ },
+ "continuation_eligibility_vs_P1_INFO_ONLY": {
+  "note": "SPEC §8k Q2: continuation/checkpoint eligibility uses the frozen P1 baseline, NOT O_ref; this block is informational and does not enter ADMITTED",
+  "conversational_pp": 21.454,
+  "conversational_limit_pp": 22.075,
+  "conversational_ok": true,
+  "per_source_vs_P1_pp": {
+   "commonvoice": 0.258,
+   "indicvoices": 0.058,
+   "kathbath": 0.34,
+   "openslr53": -0.583,
+   "subakko": 0.739
+  },
+  "per_source_ok": true,
+  "ELIGIBLE_FOR_CONTINUATION": true
+ },
+ "tests": {
+  "delta<=-0.30": true,
+  "ci_upper<0": true,
+  "simultaneous_upper<0": true,
+  "guards": true
+ },
+ "ADMITTED": true
+}

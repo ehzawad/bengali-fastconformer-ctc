@@ -1,0 +1,2613 @@
+# Phase 4 — FastConformer-CTC large, continued training on an expanded human-labelled Bengali corpus
+
+Registered 2026-09-05 (UTC) before any GPU work. Reconciled from owner decisions (2026-09-05), council A
+(`/tmp/council_p4a`, gpt-6-astra xhigh, design) and council B (`/tmp/council_p4b`, gpt-6-astra xhigh, red team).
+Where A and B disagree the orchestrator's ruling is stated and marked **RULING**. This file is the contract; a
+number that is not here is not registered.
+
+## 0. Owner decisions (verbatim intent)
+- Quality over quantity: "even if you get only 500 high-quality hours, keep it"; "useless YouTube … should not be there".
+- Admissible labels: human-labelled; **model-filtered human labels are allowed**; pseudo-labels and TTS audio are **not**.
+- Architecture: FastConformer-CTC large (Phase-1 lineage). Warm start allowed.
+- Steps scale with the data; GPU-hours are not a hard cap ("unbounded … but not six months"). A soft plan of ~200 A5000 GPU-h
+  is registered so that budget is still accounted; the owner may raise it, never the orchestrator.
+- MaCro human-validated split: train minus a 3–4 h transcript-group-disjoint dev slice.
+- Model licence: **CC-BY-NC-SA-4.0** (owner decision, against council advice; the card discloses the OpenSLR-53 CC-BY-SA and
+  Phase-1 CC-BY-SA-4.0 lineage exactly as the Phase-2 card does). **Both the HF model repo and the GitHub repo stay PRIVATE** (owner, 2026-09-05: "keep this one private … later I will make it public and still it will be NC"); only the owner flips visibility.
+- Human label audit: owner adjudicates ~100 MaCro-filtered clips (+20 flagged) on a listening board.
+- **GPU policy amended 2026-09-06 (owner):** the main run stays on the A5000 (`CUDA_VISIBLE_DEVICES=GPU-3ce8e4c2-3bae-8744-eeec-70e8a0437567`); pilot/ablation arms MAY also run on the A6000 with a **20 GB (decimal = 18.6 GiB) cap; watchdog 18.0 GiB**; foreign-compute polling every ≤60 s with a resumable checkpoint + card release within 5 minutes of detection, one arm per card, only while no foreign compute process is on that card (checked before launch and by the hourly watcher; a foreign process appearing = our arm pauses at the next checkpoint, never the other way round); co-tenant never disturbed;
+  process anonymisation ("6mn lmu"); hourly loss+WER reporting; self-authored commits.
+
+- **Generalisation over benchmark (owner 2026-09-07 ~21:15 UTC, verbatim): "it is not about beating the benchmark it is about being
+  a good generalizable model so be careful about that."** Applied as a standing lens: the development panels and S are
+  *selection instruments*, not the objective; a design choice (init, corpus, checkpoint) that wins on the selection panels
+  but loses on the never-selected one-shots (holdout, Vaani/SPRING official splits) or on the sealed FLEURS register is
+  NOT a better model. Any ablation registered from here on must be judged with the one-shots, not S alone.
+- **Init ablation requested (owner 2026-09-07 ~21:10 UTC, verbatim): "starting with Nvidia vs Phase 1 out can you somehow verify
+  which would work better ... do an ablation test on it ans reconciled the codex council."** Put to council I; see §8q when adopted.
+
+- **Standing rule (owner 2026-09-08 ~06:25 UTC, verbatim): "unless bugs or errors occurs and if you need to take decision ask me
+  questions now or whenever it popups but before asking questions you must reconcile with codex council as it is my bot my
+  watcher, my bystander."** Applied: any decision that reaches the owner is first put to a codex council round (gpt-6-astra,
+  xhigh) with the full contract and measured facts; the council's verdict accompanies the question. Bugs found along the way (owner 2026-09-08, verbatim: "if you find bug reconcile with codex council and fix
+  it") are put to a council round, then fixed and reported. **Ambiguity or a decision to make: ask the owner immediately**
+  (owner 2026-09-08, verbatim: "ambiguity or decision to make then ask me immediately"), with the council's verdict attached.
+
+- **No yielding during the full run (owner 2026-09-08 ~14:40 UTC, verbatim): "no don't yield to another it's just MB man; as full
+  training has started you won't yield it to anyone."** Applied: the production supervisor runs with `P4_NO_YIELD=1`; the
+  co-tenant-demand graceful stop is OFF for it. Co-tenant processes are still never touched (standing rule); a co-tenant that
+  needs more than the card's free memory will fail its own allocation, which the owner accepts. Crash/restart handling, the
+  13.0 GiB watchdog and the 12,000 MiB launch floor are unchanged. Supersedes §8m's yield rule and the 06:50 refinement for
+  this run. Council M (yield threshold) was in flight when the owner ruled; its verdict is filed as superseded.
+
+## 1. Sources and admission (allowlist; nothing else is read)
+| bucket | origin of labels | rows / hours (pre-carve) | status |
+|---|---|---|---|
+| Phase-1 corpus `data2/train_corpus_ready.json` (fleurs_train, openslr53, subakko, kathbath, commonvoice, indicvoices) | as Phase 1 | 552,932 / 984.1 h | IN, **re-audited 2026-09-05 (owner: "don't take the previous pipeline for granted")** — the G0.9 rules now apply to it too (see §3); every Phase-1 exclusion stays excluded |
+| `macro_filtered` — Bengali.AI competition `train` split ∩ tugstugi WER<15 list | human-written prompt read by crowd speaker, "algorithmically cleaned" by Bengali.AI, then Whisper-WER<15 filtered (3 rounds) | 550,921 / 736.8 h | IN **iff** the audit in §3 passes |
+| `macro_validated` — competition `valid` split (= tugstugi's validated list, 29,583 = all but 5 rows) | manually reviewed and corrected by Bengali.AI annotators | 29,583 / 48.9 h | **EXCLUDED FROM TRAINING (owner ruling 2026-09-05, strict G0.9(b): 362/29,583 = 1.22 % of its clips are byte-identical to Common Voice recordings in D/holdout, above the 0.5 % duplicate ceiling).** Used ONLY as the source of dev panel `M` (carved from historically unexposed, hash-clean sentence groups) |
+| `madasr` — IISc RESPIN-S1.0 Bengali `train_clean` (2025 release), **whole** | read speech of expert-composed dialect-rich sentences, IISc "clean" slab; CC-BY-4.0 (IISc Terms of Use incorporate CC-BY-4.0: `experiments/p4/licences/RESPIN_Data_TAC.pdf`) | **645,722 / 894.2 h**, 1,791 speakers, 5 dialects, 20,038 distinct sentences (ingested 2026-09-06; 49 rows outside the duration band) | IN iff audit §3 passes. **AMENDMENT 2026-09-05:** tugstugi's 2023 MADASR id list does not map onto this release (numeric ids; 7/1,183 dev texts match), so no upstream Whisper filter applies to this bucket — disclosed on the card. Official `dev` (1,500 clips / 2.27 h / 100 speakers / 5 dialects) → panel `R` |
+| Kathbath official valid (HF `ai4bharat/Kathbath` bengali/valid, converted by `tools/p4/p4_ingest_kathbath_valid.py`) | AI4Bharat | 2,236 / 4.05 h / 17 speakers | panel `K` (selection, weight 0.10) — a KNOWN-SPEAKER, text-disjoint panel (shares speakers with Kathbath train); no rows are removed SOLELY for shared speaker identity (all protected sentence/audio exclusions still apply); Kathbath official test is not on HF → no test one-shot |
+| `vaani` — ARTPARK-IISc Vaani transcription part, Bengali (owner-approved 2026-09-05) | manually transcribed spontaneous image-description speech (West Bengal districts), transcribers from the same district; CC-BY-4.0, HF gate accepted. Annotation policy (registered after measuring 14,598 rows: 52 % `<noise>` spans, 7 % `<talking>`, 64 % `{brace}`, 5.5 % partial markers): `<span>` tags mark the background condition around the PRIMARY speaker's words → tags deleted, words kept; `[event]` brackets deleted; `{brace}` is an English gloss of the preceding Bengali-script loanword ("লেগ {leg}") → deleted, following case suffix re-attached; rows with `[unintelligible]`/`[inaudible]` DROPPED (partial labels teach deletion, Phase-1 lesson). Residual risk (noise-heavy audio, span semantics) is what the `O+vaani` ablation arm and the 50-clip listening slice test | **train 86,861 / 118.1 h ingested (117.4 h retained after carving/caps)** (3,953 partial-marker rows dropped); validation 10,105 / 13.6 h and test 12,695 / 16.1 h are PROTECTED one-shot panels | G0.6 PASS after the owner's clarification (verdicts had targeted the Phase-1 hint); arm runs | IN iff audit §3 passes (own 50-clip listening slice + Phase-1 disagreement); its official validation/test splits are protected, never trained on |
+| `spring_inx` — SPRINGLab SPRING_INX_Bengali_R1 + R2 (owner-approved 2026-09-05) | manually transcribed mock conversations/monologues, vendor-collected with preliminary QC (IIT Madras, NLTM); **CC BY 4.0** (portal text archived: `experiments/p4/licences/SPRING_INX_licence_record.md`) | train 374.73 h + 272.98 h (dev 70 h, eval 10 h protected) | IN iff audit §3 passes (own ablation arm) |
+| Shrutilipi (any subset, incl. WER<15) | forced alignment | — | **OUT, 0 rows, 0 GPU-h** (Phase-1 −24.6 pp ablation; both councils) |
+| tugstugi YouTube pseudo1–9, bn-google-tts, "long" concatenations | pseudo / synthetic / derived | — | **OUT** |
+| tugstugi OpenSLR / Kathbath "extra" rows | rows Phase 1 excluded or never downloaded | — | **OUT** (historical exclusions stand; no provenance for re-admission) |
+
+Text targets: the **original human reference** (competition `train.csv` sentence; RESPIN transcript; Phase-1 manifest text) —
+never tugstugi's cleaned CSV text (used only as the membership list of filtered ids). Every target is transformed with the
+repo's frozen surface `metric_surface(NFC(text), score_punctuation=False)` + whitespace collapse (punctuation → space, Latin
+lower-cased, numerals preserved). **RULING:** this is applied to the old corpus too, so pilot arms share one target convention.
+
+Cleaning for new rows (registered limits, publish removal counts per reason): duration 0.5–23.0 s; 2–35 NFC non-space code
+points per second; decodable, finite, non-silent audio; non-empty target; no `<unk>` after tokenisation; CTC feasibility
+`L + R ≤ T` and `(L+R)/T ≤ 0.90` with the model's real frame count (12.5 Hz), where R = adjacent equal-token pairs.
+If any single new bucket loses >1 % of rows to feasibility, STOP and report (do not silently drop a dialect/text type).
+
+Old-corpus re-audit (2026-09-05, text + 500-file/source header sample): 0 duplicate paths; all audio 16 kHz mono (FLEURS-train files are 32-bit FLOAT WAV and
+IndicVoices files are FLAC despite the .wav suffix — Python's `wave` cannot read either, `soundfile` can; every audio tool must use soundfile); durations
+match headers. Defects found and now handled by G0.9 for ALL buckets: fleurs_train 84 rows with Latin letters (usgs, a1gp) + 11 with
+¥/other symbols; subakko 262 Latin rows ("ভিটামিন d") + 450 math-expression rows ("১+৩+৫+৭=১৬": after punctuation→space the target is
+a digit soup nobody spoke) + 68.6 % non-NFC raw text (already NFC'd by the surface); openslr53 3,311 rows below 2 chars/s (3.9 h;
+one-word prompts inside long silence — legitimate but outside the registered density band, dropped for uniformity). Numerals: the
+FLEURS-test references write 18.3 % of sentences with ASCII digits while every training source writes Bengali digits (or none: MaCro,
+RESPIN have no digit rows) — a scorer-level convention mismatch Phase 1 also carried; **registered policy (council C #2, #11): keep digit-bearing rows as
+written in every arm, drop math expressions, no further headline-driven target or scorer changes, and report after the single
+scoring event the share of FLEURS-test errors that are digit tokens** (diagnostic only). Vaani/SPRING one-shot results are produced
+only after final checkpoint selection and never influence admission or selection.
+
+**Provenance finding 2026-09-05 (audio audit):** decoded-PCM hashes show MaCro recordings byte-identical to Common Voice Bengali
+recordings in our dev panel D and holdout (362 matches in the first 46k MaCro files hashed) — Bengali.AI's crowd-sourced MaCro
+INCLUDES Common Voice Bengali audio. Consequences (registered): (a) every training row whose PCM hash equals a protected-panel
+recording is removed; (b) training rows are de-duplicated by PCM hash across ALL sources (MaCro ∩ CommonVoice), keeping one copy
+by deterministic hash order; (c) the card must state that MaCro and Common Voice overlap and that the count of unique hours is
+after hash de-duplication. **Kathbath panel K:** the HF `valid` split shares speaker ids with Kathbath train (27,230 of 46,240 train
+rows share a speaker) — K is a KNOWN-SPEAKER, text-disjoint panel and is labelled so; no training rows are removed for it.
+
+**Freeze and precedence (council C #1, #2, registered):** before any pilot update, the source inventories, protected-panel manifests,
+transformation code, exclusion ledger and final arm manifests are frozen with checksums. Deduplication and MAX_PER_TEXT reserve
+O's retained recordings FIRST; new rows occupy only remaining slots, so every O+bucket arm contains exactly the frozen O rows and
+targets. For each audio component (rows sharing a decoded-PCM hash or a confirmed fingerprint match): every alias and every original
+reference is checked against protected sets and historical exclusions; any protected match excludes every member; if the
+frozen-surface references agree, the already-admissible O row is kept and new-source copies count zero new hours; if they disagree
+materially the whole component is excluded for this phase (ASR agreement never selects the reference). G0.9 admission rates use
+the ingested candidate count as denominator and are reported both pre-removal and retained. Arithmetic expressions are detected on
+the NFC original before punctuation removal. Reported O/N counts are provisional until every audit finishes.
+
+Dedup and carving order: (1) canonical id dedup; (2) decoded-PCM hash dedup; (3) fingerprint dedup across all corpora
+(calibrated, §4); (4) remove every training row whose sentence group or audio matches a protected panel; (5) global
+`MAX_PER_TEXT = 5` distinct recordings per normalised sentence across all sources (deterministic hash order, never by ASR WER), O's retained rows reserved first. **RESPIN exception (council D Q2, registered before the build):** `madasr` may add at most 5 distinct speakers per (sentence, official dialect) cell, with ≤25 retained recordings per sentence across all sources; missing dialect metadata gets no expanded allowance; the sentence×dialect occupancy table is published.
+
+## 2. Panels and protected sets (no training row may share a sentence or audio with any of these)
+| panel | rows | role |
+|---|---|---|
+| `D` locked dev `data2/val_corpus.json` | 5,385 | selection + historical comparison (P2 17.03 / P1 20.35 / hishab 22.30, frozen surface) — reported separately, always |
+| `M` MaCro validated slice | ≈3.5 h, ≥500 sentence groups, ≤3 recordings/group, groups chosen by seed 20260905 **from sentences with no historical exposure** (not in any Phase-1/2/3 train manifest or tokenizer text) | selection |
+| `R` RESPIN official dev (`data4/respin/manifest_madasr_dev.jsonl`) | 1,500 (494 distinct sentences) | selection (only if MADASR admitted) |
+| `K` Kathbath official valid (`data4/kathbath/manifest_valid.jsonl`) | 2,236 | selection |
+| `data2/holdout_corpus.json` (speaker-disjoint IndicVoices-R — read as *disjoint from* IndicVoices-R; it contains none, see §8n(v)); Vaani official validation (10,105) / test (12,695); SPRING R1/R2 validation and test | — | one-shot reports after final checkpoint selection (manifest hashes recorded at freeze) |
+| conversational slice of D (indicvoices, scenario Conversation, 774 rows) | 774 | repeatedly evaluated selection GUARD (not a one-shot) |
+| **FLEURS official test** (`bench_assets/eval_fleurs_bn`, split==test, 920 recordings / 349 sentences) | 920 | sealed headline, decoded once |
+| FLEURS validation | — | never used (contaminated) |
+
+Selection score (frozen-surface corpus WER, pp): `S = 0.60·D + 0.20·M + 0.10·R + 0.10·K` if MADASR passes Gate 0, else
+`S = 0.60·D + 0.30·M + 0.10·K`. **The weight vector is fixed once after Gate 0 and used for every arm and checkpoint thereafter, even if MADASR later fails its arm.** Bootstrap: paired resamples across systems; sentence clusters shared across panels receive coupled resampling weights before S is formed. Regression guards: no D source worse than P1 by >1.0 pp; conversational slice of D worse by
+≤0.5 pp; empty-output rate ≤0.1 %. **Definitions fixed 2026-09-05 (trainer workstream):** conversational slice = D rows with source indicvoices and scenario "Conversation" (774 rows, 6,628 reference words); Phase-1 baselines measured through the new evaluator and stored in `experiments/p4/baseline_p1.json` (D 20.35 frozen; per source commonvoice 19.21 / indicvoices 16.57 / kathbath 12.48 / openslr53 18.10 / subakko 36.83; conversational 21.58; K 14.67; R 32.06). NeMo-internal surface numbers are NOT comparable with the Phase-1 in-training curve (different dataloader filters); only the frozen surface is used for gates. Measured throughput on a smoke manifest: ~745 steps/h (SPEC planning figure 1,000 was optimistic; re-measure on the real arm manifests).
+
+## 3. Pre-pilot gates (Gate 0: CPU audits + the explicitly listed GPU qualification: restoration check, disagreement decode, longest-clip profiling, cross-card check, 1,000-update replay)
+- G0.1 Provenance: 100 % of admitted rows trace to an original human reference + allowlisted transformation; counts by source.
+- G0.2 Licence record for every source archived under `experiments/p4/licences/`; MADASR admitted only with the IISc terms file.
+- G0.3 Leakage audit (text): frozen surface + audit keys (punctuation-deleted, digit-script-folded, joiner-stripped) + fuzzy
+  candidates (char similarity ≥0.90 for strings ≥20 chars) against every protected panel → **zero unresolved matches**.
+- G0.3/G0.4 coverage (council C #5): audits run over EVERY candidate bucket (incl. Vaani/SPRING protected splits) and candidate M is
+  audited against the complete Phase-1/2/3 training audio (PCM + fingerprint) and sentence/tokenizer text; M must still meet its
+  hours/group minimum afterwards, else STOP. Historical exposure is recorded separately from current-training overlap.
+- G0.4 fingerprint rule (registered 2026-09-06 before the full match completed, from calibration alone): frozen thresholds
+  MIN_HITS 12, confirmed ≥24 hits with ≥2 s span; calibration negatives (39,800 unrelated + 1,000 same-prompt + 20,000
+  operational) never exceeded 11 hits. Any training row with a match ≥12 hits to any protected panel is EXCLUDED (confirmed
+  or unresolved); a panel-M recording matched by an old-corpus query is removed from M as historically exposed; M is then
+  FIXED to the indexed set (`panel_M.indexed_by_fingerprint.jsonl`) minus those rows and is not re-selected.
+- G0.4 Leakage audit (audio): decoded-PCM SHA-256 + spectral fingerprint (calibrated on 200 train-only clips × 6 transforms,
+  ≥99 % recovery per transform, 0 false confirmations on 10,000 unrelated + 1,000 same-prompt pairs) train × protected panels
+  → zero confirmed or unresolved matches. Test-set matching is run as a fixed audit returning only ids/counts.
+- G0.5 Tokenizer: Phase-1 `data/tokenizer_v1024_corpus` (sha256 6288cf8e…) unchanged; zero `<unk>` in retained targets;
+  tokens/s p50/p95/p99 by source; feasibility rule of §1.
+- G0.6 **AMENDED by the owner 2026-09-06** after reviewing the 230 board clips informally ("dataset is kinda okay"; no
+  verdict export): the human verdict gate is replaced by a MACHINE CONSENSUS audit (`tools/p4/p4_machine_audit.py`) using two
+  independent recognisers (Phase-1 FastConformer and hishab/titu_stt_bn_conformer_large): a clip is a consensus disagreement
+  when both are >30 % WER from the reference but <15 % WER from each other; catastrophic-like when both are >80 % CER from it.
+  Registered rule (before results): a new bucket passes iff its consensus-disagreement rate ≤ max(2× old-corpus rate, old + 2 pp)
+  and its catastrophic-like rate ≤ old + 0.5 pp, over 1,000 random retained clips per bucket + the 230 board clips, with 500 clips
+  per old source as the baseline. The card must state that label quality was machine-audited and owner-spot-checked, not
+  human-verified. Original G0.6 text kept below for the record.
+- G0.6 (superseded) Human audit (owner): listening board of 100 uniformly random `macro_filtered` clips + 20 worst by Phase-1
+  disagreement, PLUS 50 uniformly sampled clips from the final retained manifest of EVERY other new bucket (madasr, vaani,
+  spring_inx); each 50-clip stratum passes with ≤2 material errors and 0 catastrophic (council C #7). Judgments are published
+  before the bucket's pilot. Machine disagreement is never a substitute for the human audit. Material error = >10 % WER of the reference vs what is heard; catastrophic =
+  wrong pairing / non-speech / gross truncation. **Pass: macro random stratum ≤5 material / 100; every other new bucket ≤2 material / 50; 0 catastrophic anywhere, including the 20 flagged macro clips (council D Q7 — no exemption).** A failed bucket
+  is excluded whole. Machine disagreement (Phase-1 greedy, ≤0.5 GPU-h) is reported as *ASR-disagreement*, not label noise.
+- G0.9(a) **ruling (council D Q4):** script violations are counted on the incoming candidate rows; >1 % = the bucket FAILS (the >5 % owner-review flag adds a report, it does not override the failure). Measured: SPRING-INX R1 48.3 % of rows carry Latin-script code-switch words → **SPRING-INX is EXCLUDED for this phase** (owner may amend explicitly with a replacement threshold and the stated bias). Rows are never partially repaired (no deletion of Latin words, no transliteration).
+- G0.9(b) **ruling (owner 2026-09-05): the duplicate rate is the INCOMING rate — duplicates against protected panels AND against other sources count, denominator = ingested candidate rows — and cross-corpus copies are NOT exempt.** Consequence already applied: macro_validated excluded from training; macro_filtered, madasr, vaani, spring_inx are judged by the same rule once fully hashed.
+- G0.9 **Uniformity gate per bucket (owner principle 2026-09-05: "if a dataset is not uniform, precise and clean after the full
+  process, jettison it")**. After ingestion and the frozen-surface transform, every bucket is profiled and must satisfy ALL:
+  (a) ≥99 % of rows contain only Bengali script, ASCII/Bengali digits and spaces — rows with Latin letters or other scripts are
+  removed (FLEURS references write foreign names in Bengali script; Latin targets are a convention mismatch), and a bucket losing
+  >5 % of its rows to this rule is flagged for owner review; (b) empty/duplicate-audio/decode failures <0.5 %; (c) duration-vs-metadata
+  mismatches <1 %; (d) the tokens/s p99 ≤ 11 and feasibility loss ≤1 %; (e) a 200-row random sample of targets read by the orchestrator
+  shows one consistent transcription convention (no residual tags, no transliteration/gloss doubling, punctuation removed uniformly).
+  A bucket that fails any clause is **excluded whole for this phase** — no row-level repair beyond the registered transforms, no
+  threshold tuning. Passing G0.9 is necessary, not sufficient: the human audit (G0.6) and the bucket's ablation arm (§5) still apply.
+- G0.7 Resource: profile the 21 longest admitted clips at microbatch 12; peak reserved ≤16.5 GiB; watchdog 17.0 GiB.
+- G0.8 Admission: ≥500 non-duplicate new hours after all of the above; otherwise STOP Phase 4 and report.
+
+## 4. Initialisation and optimisation (registered)
+- Init **A**: all weights of Phase-1 `experiments/fastconformer_ctc_bn_1kh/final.nemo` (sha256 61362a36…; 18 layers, d 512,
+  dw-striding 8×, conv BatchNorm, kernel 9; head 1,024 + blank), tokenizer unchanged, BN buffers preserved; **fresh AdamW state,
+  fresh scheduler**. Zero-update restoration check: dev WER of the loaded model equals Phase-1's recorded 20.35 % (frozen) ±0.05.
+- AdamW (0.9, 0.98) wd 1e-3, clip 1.0, bf16, SpecAug 2×15 / 2×0.05 (Phase-1 values), effective batch 252 = 12 × 21.
+- Schedule: warmup 1,000 steps 1e-5 → **peak 2e-4** (RULING between A's 2e-4 and B's 1e-4: Phase 1 tolerated 5e-4 from a
+  fresh head; 2e-4 is already a 2.5× reduction), cosine to 1e-5 at **H = 150,000** steps (RULING between A 150k and B 100k:
+  ≈27 epochs of 1.4 M rows; owner asked for steps to scale with data; plateau rule below stops earlier if warranted).
+- Validation every 2,000 steps (all panels, frozen surface + NeMo-internal for D). Checkpoints: last 2 resumable, best 3 by S,
+  immutable milestones (pilot end, 20k, 40k, 80k, 120k, H).
+- Progress gate at 20,000: S ≤ S(P1) − 1.5 pp and D ≤ D(P1) − 1.0 pp and guards pass; else STOP.
+- Plateau (council D Q5): at step 50,000 initialise an anchor = best eligible S so far; reset anchor and counter whenever an eligible checkpoint improves the anchor by ≥0.20 pp cumulatively, else increment at each validation; stop after 10 consecutive non-reset validations (20k-step patience, earliest stop 70k). H stays 150,000. **The parenthetical that stood here, "≈16–18 epochs of the final corpus; Phase 1 ran 18", is SUPERSEDED by §8f and kept only for the record: at effective batch 252 the true figure is 29.9 nominal epochs of N_final (1,265,884 rows / 5,023 updates per epoch) and 34.8 if MaCro alone wins (1,084,696 rows / 4,304 per epoch). H and every stopping rule are unchanged.**
+- Final checkpoint = lowest eligible S; ties within 0.05 pp → earlier. No averaging, no decoder search.
+- Resume semantics: audited — interrupted vs uninterrupted **1,000-step replay across an epoch boundary** must give identical
+  sample ids and LRs (the 40-step smoke replay passed on 2026-09-05 but does NOT satisfy this; the 1,000-step replay is a Gate-0
+  GPU item, ≈1.5 GPU-h, charged to Gate 0). Resource profiling is repeated on the final admitted manifests' longest clips.
+
+## 5. Pilots — per-bucket ablation (owner directive 2026-09-05: "check all the new data we will be adding")
+All arms start from init A with the same schedule prefix; **8,000 steps each = 2.016 M presentations** (equal exposure); validation
+at 2k/4k/6k/8k on D, M, K, R. Official Vaani/SPRING splits are decoded only after final checkpoint selection.
+| arm | corpus |
+|---|---|
+| O_ref control (run id `O_A5000`) | Phase-1 corpus only (re-normalised targets); trained on the A5000 to update 7,774 and on the A6000 to 8,000 after a co-tenant took the A5000 — the completed mixed-card reference control used by every admission comparison |
+| O_A6000 control | identical O on the A6000 (council D Q1): a 200-update cross-card check first (identical cut order, target hashes, LRs; ≤1 % relative difference of 20-step mean losses), then at 8k the two controls must agree within 0.10 pp S / 0.20 pp D / 0.30 pp per source; an A6000-trained bucket arm must pass admission against BOTH controls; if the controls disagree, decision pilots run on the A5000 only |
+| O+macro_filtered | O + `macro_filtered` |
+| O+madasr | O + `madasr` |
+| O+vaani | O + `vaani` — RESTORED 2026-09-06: the owner's board verdicts had judged the Phase-1 hypothesis shown as a hint, not the reference (owner: "reference is okay ... it is phase 1 some are catastrophic"); verified by transcribing the board-embedded audio with hishab (12/12 flagged MaCro clips at 0–18 % WER vs reference, identical to the original files). Vaani references are verbatim-ish spontaneous speech (some omit false starts) — its arm decides |
+| O+spring_inx | NOT RUN (SPRING-INX failed G0.9(a): 48.3 % Latin-script rows) |
+| N_final | O + every bucket that passed its arm, on the A5000; its own 8k point is compared with O_A5000 and with the best single-bucket arm; an A6000 winner's 8k state is transferred to the A5000 (path verified beforehand) |
+Stop an arm at any validation for non-finite loss, >1 % empties, or D worse than P1 by >5 pp.
+**Bucket pass rule at 8,000** (all required): S ≤ S(O) − 0.3 pp with paired sentence-clustered 95 % CI upper bound < 0 (10,000 draws,
+seed 20260905); D ≤ D(O) + 0.3 pp; no D source worse than O by >1.0 pp; conversational slice worse by ≤0.5 pp; empties ≤0.1 %.
+**Simultaneous bound (council C #8):** with m predeclared single-bucket arms (m=3 after G0.6/G0.9: macro_filtered, madasr, vaani), admission additionally requires the paired-bootstrap upper quantile at 1−0.025/m (≈99.4th percentile for m=4) to be below zero. Bootstrap per panel corpus WER first, then form S; report marginal CIs too. An inconclusive bucket (CI includes 0) is excluded with NO claim of equivalence or bad labels. N_final's interval is a conditional selection statistic, not independent confirmation. A bucket that fails is **excluded from N_final** (no re-tuning, no partial admission). N_final is admitted to the long run iff it
+passes the same rule against O **and** S(N_final) ≤ S(best single arm) + 0.2 pp (adding buckets must not hurt). If N_final fails but
+a single arm passed, the long run uses that single arm's corpus (registered fallback) — **only if G0.8 (≥500 unique new hours after all exclusions) still holds for that corpus**; otherwise STOP unless the owner amends the minimum (council C #9). If nothing passes → **STOP Phase 4**; O is not
+promoted; FLEURS stays sealed. The chosen arm resumes from its own 8k checkpoint (optimizer, sampler, RNG) to H with no second warmup.
+Capped-mixture arm C (council A) is dropped in favour of this design; a 30 % cap may only be registered later as a new arm.
+Pilot cost at the MEASURED 745 steps/h: 6 × 10.7 ≈ 64 GPU-h; continuation 8k→150k ≈ 191 GPU-h; with Gate-0 GPU work, eval and reserve ≈ 292 GPU-h total (council C #12; owner ruled GPU-hours soft, 'not six months' ≈ 12 days of A5000 time). Re-measure throughput on the final arm manifests before the ledger is trusted.
+
+## 6. Headline (one event)
+Freeze checkpoint, tokenizer, greedy CTC decoding and scorer; decode 920 FLEURS-test recordings once through the benchmark's
+`asr_core` staging; paired sentence-cluster bootstrap (349 clusters, 20,000 draws, seed 20260905, corpus WER = Σedits/Σref words)
+against frozen Phase-2 (16.54 %) and Phase-1 (**19.67 %** under the frozen scorer on the 920 test rows — the 19.57 % quoted earlier was a different harness; corrected 2026-09-05 after re-scoring `outputs_a5000/ehzawad_fastconformer/predictions.json`, which the benchmark summary also records as 0.19672) hypotheses. **Success: WER < 16.54 % and the 95 % CI of (P4 − P2) lies
+entirely below 0.** "Strong": ≤16.04 %. Report CER, per-panel one-shots, latency (same protocol as Phase 3 SPEC Q4). No second decode.
+
+## 7. Budget ledger (soft; owner may raise)
+| item | GPU-h |
+|---|---|
+| Gate-0 GPU work (disagreement decode, restoration check, profiling) | ≤ 6 |
+| Pilots: 2 controls + 4 buckets + N_final, 8k each incl. validation | ≈ 76 |
+| Continuation 8k→150k incl. 71 validations | ≈ 194 |
+| Final eval, export, latency | ≤ 8 |
+| Reserve | 12 |
+| **Total plan** | **≈ 298 (soft; owner: unbounded but not months)** |
+
+## 8. Claims discipline (card)
+"Continued fine-tuning of the Bengali FastConformer-CTC checkpoint on X unique hours of human-labelled Bengali speech; Y hours were
+selected upstream by ASR/reference agreement (Whisper, WER<15, 3 rounds, digit rows dropped upstream); no pseudo-label targets or
+TTS audio." Disclose: per-source table (creator, version, licence, hours, exclusions), the human audit result, MaCro speaker
+separation unknown, FLEURS test history (scored in Phases 1–3), single Phase-4 scoring event, private pipeline, NC-SA vs CC-BY-SA
+tension (owner decision). Never: "fully manually verified", "speaker-disjoint everywhere", "SOTA", "reproducible from the public repo".
+
+## 8b. Gate-0 measurements (2026-09-06, after the full hash + text audits)
+- Hashing complete: 1,882,804 rows; 2,019 old-corpus files (data/wavs) decode as silent → removed as audio defects; 10,278 exact
+  duplicate groups within training (MaCro ∩ Common Voice); 380 train×panel hash matches (MaCro vs D 204 / holdout 176), all removed.
+- Text audit over every bucket: FLEURS test 0 matches on every key. macro_filtered shares 749 sentences with D / 645 with holdout;
+  madasr shares 126 sentences with R exactly and 4,443 fuzzy (all removed; 50,723 madasr rows carried a protected sentence).
+- Panel M: 1,964 groups / 3.50 h, 0 recordings hash-identical to any Phase-1 training recording; **P1 baseline M = 20.59 % frozen
+  (NeMo-internal 30.56 %), S(P1) = 20.998 pp with weights D .6 / M .2 / R .1 / K .1** (`experiments/p4/baseline_p1.json`).
+- G0.9(a): macro_filtered 0 %, madasr 0 %, vaani 1.31 % BEFORE the "|" ruling (1,119 of its 1,135 flagged rows carried Vaani's
+  "|" sentence delimiter, a punctuation mark Unicode classes as Sm; registered: "|" → space for every bucket) → vaani ≈ 0.02 %;
+  spring_inx 46.2 % → FAIL (excluded). G0.9(b) incoming: macro_filtered 0.19 % (1,047 CV copies) pass; madasr 0 %; vaani 0 %;
+  macro_validated 31.3 % (9,208 of its clips are Common Voice training recordings) — panel-only as ruled.
+- RESPIN under the sentence×dialect cap: 95,243 rows / 149.0 h retained (dialects use disjoint prompt inventories, so the cap
+  behaves like 5 per sentence; council D warned exactly this). Not raised (registered: "do not raise the cap again").
+- Provisional arms: O 543,776 / 972.5 h; O+macro_filtered 1,088,679 / 1,701 h; O+madasr 639,019 / 1,121 h; N 1,850 h (+878 new h ≥ 500 ✓).
+  Rebuild with the "|" ruling and audio-defect removal in progress; fingerprint match (train × panels incl. M) running.
+
+## 8c. Storage finding (2026-09-06) — registered mitigation
+`/mnt/sdb` is a single rotational 16 TB HDD (~135 random reads/s). Training reads 252 clips per update; Phase 1's 984 h fit
+the 96 GB page cache (1,100 steps/h) but arm N (227 GB PCM16) does not: the Gate-0 drills ran at ~250 steps/h with the GPU at
+20–40 % and the disk at 100 %. Mitigation: every training clip of arm N is stored losslessly as FLAC on the NVMe root disk
+(`/tmp/p4cache`, ~125 GB of 279 GB free; `tools/p4_nvme_cache.py`, sample-exact round-trip verified per file, PCM-head
+digest recorded). Arm manifests used for training are verbatim path-remapped copies (`*.nvme.jsonl`, checksums recorded);
+the frozen `/mnt/sdb` manifests remain the registered artefacts. The cache is regenerable and deleted after Phase 4.
+Consequence: the 745 steps/h figure was measured on a page-cached 2,000-row smoke and is NOT the HDD rate; throughput is
+re-measured from the cache before the ledger is trusted. The fingerprint match runs on the HDD while pilots read the NVMe.
+
+## 8d. Gate-0 GPU qualification results (2026-09-06, from the NVMe cache)
+- Throughput from the cache (median per-update wall time, updates 20–120): A5000 891 steps/h, A6000 887 steps/h (peak 9.2 GiB).
+  Worker-side tokenisation (pretokenize=False) gave 863 steps/h — no gain — so the registered value stays pretokenize=True.
+  Ledger at ~880 steps/h: pilot arm 8k ≈ 9.1 GPU-h; continuation 142k ≈ 161 GPU-h.
+- Cross-card 200-update check (`experiments/p4/cross_card_check.json`): cut order and LR sequence IDENTICAL at every update;
+  all losses/gradients finite; 20-update mean-loss relative difference worst block 1.58 % (max |Δloss| 0.075) — above the
+  proposed 1 % tripwire → **tripwire FAILS**. Over the tested 200-update probe the same-card replay was bit-identical (Δloss 0.0); the 1,000-update replay later showed
+  same-card divergence from update 285 (max |Δloss| 0.022), so determinism is asserted only for short probes. **RULING (orchestrator):** the tripwire's 1 % was council
+  D's proposed policy tolerance, not a measured bound; the decisive registered rule remains the 8k control agreement
+  (O_A6000 vs O_A5000 within 0.10 pp S / 0.20 pp D / 0.30 pp per source). O_A6000 runs; if that agreement fails, every
+  A6000-trained arm is discarded and decision pilots run on the A5000 only. Disclosed on the card either way.
+
+- 1,000-update interrupted-vs-uninterrupted replay (`experiments/p4/replay_1000_check.json`, cut at 400, epoch boundary at
+  540→541 inside the resumed leg): cut ids and LR identical at all 1,000 updates, resume handshake OK, both runs finite.
+  Losses are bit-identical for updates 1–284 and then drift (max |Δloss| 0.022, worst 20-update block 1.23 %) in BOTH the
+  uninterrupted and the interrupted run — the divergence begins 116 updates BEFORE the cut, so it is run-to-run CUDA
+  nondeterminism (non-deterministic kernels in CTC loss / convolutions), not a resume defect. **RULING:** resume semantics
+  PASS on the registered criteria (ids, LR, handshake, epoch boundary); numerical drift of this size is the same-card noise
+  floor and is disclosed; it also reframes the cross-card 1.58 % block difference as mostly run-to-run noise rather than a
+  card effect (the 8k control-agreement rule remains the binding cross-card test). Deterministic algorithms are NOT switched
+  on (they would change the registered kernels and throughput mid-phase).
+
+- Deviations disclosed at Gate 0 (council F Q7): no train×train fingerprint dedup (1.8 M × 1.8 M infeasible; exact PCM hashing covers cross-source duplicates) and no fingerprint index for the Vaani protected splits (text + exact PCM hash only). The original §1/§3 wording ("fingerprint dedup across all corpora", "EVERY candidate bucket") is therefore NOT fully executed as written.
+- hishab exposure: its 4.3–4.8 % WER on MaCro/RESPIN raises a training-exposure concern; provenance is unverified. Card wording: "suspected training exposure; independence unverified".
+- 2026-09-06 G0.6 outcome (final): the owner reviewed all 230 board clips and first exported 65 + 6 "catastrophic" verdicts, then
+  clarified they had been judging the Phase-1 hypothesis hint, not the reference: "Vaani and MaCro-filtered and RESPIN reference is
+  okay". Verification: hishab transcribes the board-embedded audio of 12/12 flagged MaCro clips to the reference (0–18 % WER; board
+  audio identical to the originals). **G0.6 = PASS for macro_filtered, madasr and vaani (references OK per the owner).** The machine
+  consensus audit is the quantitative record. Lesson recorded: a listening board must not show a model hypothesis next to the
+  reference by default — it biases the listener toward judging the model.
+
+- Machine consensus audit result (`experiments/p4/audit/machine_audit.json`, 2026-09-06): old-corpus baseline 2.13 % consensus
+  disagreement / 0.20 % catastrophic-like (n=3,000; note Phase 1 trained on these clips, so this baseline is biased LOW → the
+  rule is stricter for new data). macro_filtered 0.20 % / 0 % → PASS (limit 4.27 % / 0.7 %); madasr 0.60 % / 0 % → PASS; vaani
+  1.80 % / 0 % would pass the machine rule but is excluded by the owner's listening verdict (6 catastrophic), which outranks it.
+  Board clips (170 MaCro+RESPIN): 0 consensus disagreements. Caveat for the card: hishab's conformer-large scores 4.8 % WER on
+  MaCro-filtered and 4.3 % on RESPIN (vs 13–24 % on our old sources), i.e. it has almost certainly trained on those corpora —
+  it is an agreement witness, not an independent judge, for those two buckets; the Phase-1 model is the independent one.
+  Side finding: old OpenSLR-53 rows show 7.4 % consensus disagreement (both models agree against the reference) — the highest
+  of any source. O stays frozen as registered (no ASR-agreement-based row selection); disclosed as a known label-noise source
+  and a candidate for a future phase.
+
+## 8e. FREEZE (2026-09-06 16:0x UTC) — Gate 0 closed
+- Fingerprint match over 1,836,132 training clips × 19,174 panel clips: 296 confirmed + 7,937 unresolved (≥12 hits) → 5,296
+  training rows excluded; 135 panel-M recordings historically exposed (old-corpus audio matches) → removed; **M = 1,829 groups /
+  3.24 h**. Retained-corpus verification (`experiments/p4/corpus/retained_leakage_verification.json`): 0 retained rows in any
+  hash, fingerprint or text match; 0 retained PCM identical to any panel or FLEURS file; 0 M rows with old-corpus matches.
+- Final frozen arms (`FREEZE.sha256`, 22 entries incl. code, config, tokenizer, panels): O 541,276 / 965.9 h; O+macro_filtered
+  1,084,696 / 1,692.4 h; O+madasr 636,517 / 1,114.9 h; O+vaani 627,223 / 1,083.3 h; N 1,265,884 / 1,958.7 h (+992.8 new h ≥ 500).
+  Training reads the NVMe copies (`*.nvme.jsonl`, sha256 O f5b8e716…, +macro 00d6506b…, +madasr f92be7d7…, +vaani cb1469c6…, N ba723cc9…).
+- Launched: O_A5000 and O_A6000 controls (8k, val every 2k), A6000 guarded by `experiments/p4/a6000_guard.sh` (foreign process →
+  graceful stop at a checkpoint → re-queue on the A5000; owner rule "continue on one card").
+
+- Controls started 16:02 UTC. Determinism finding: a 5-update probe on the A6000 reproduces O_A6000's losses BIT-EXACTLY
+  (same-card runs are deterministic from update 1), while O_A5000 and O_A6000 consume identical cut ids/tokens yet differ by
+  ~10 % in per-update loss from update 1. PROPOSED mechanism (not traced in this environment): CUDA dropout/mask kernels may derive Philox offsets from the launch
+  grid, which depends on SM count (A5000 64, A6000 84), giving different dropout/SpecAugment realisations. Treat as a hypothesis. Consequence: the two controls
+  double as a run-to-run (seed-like) noise estimate; the 8k control-agreement rule is the binding cross-card test as registered.
+  Council C/D's "≤1 % 20-update block" tripwire is recorded as not applicable across cards.
+
+## 8f. Council E (pre-launch) closeout — items certified after its packet (2026-09-06)
+- Retained-corpus leakage certification: `experiments/p4/corpus/retained_leakage_verification.json` PASS (0 retained rows in any
+  hash/fingerprint/text match; 0 retained PCM identical to any panel or FLEURS file, all 1,322 FLEURS files hashed). The incoming
+  `leakage_report.json` (PASS=false) is preserved: its counts are findings against INCOMING rows that the builder excluded. The
+  665 `totals_fleurs` text matches are fleurs_train rows echoing the FLEURS **validation** split (contaminated, never used); the
+  test split has 0 matches on every key.
+- Fingerprint index coverage: 19,174 = D 5,385 + holdout 6,767 + K 2,236 + R 1,500 + M 1,964 + FLEURS 1,322 (test+validation).
+  Vaani validation/test were NOT fingerprint-indexed; they are protected by text and by exact PCM hash (22,800 files, 0 identical
+  to Vaani training audio, `vaani_protected_split_hash_check.json`) and are decoded only after final selection. SPRING is excluded
+  entirely (its splits are not evaluation instruments in this phase). Train×train fingerprint dedup was NOT run (1.8 M × 1.8 M);
+  cross-source duplicates are handled by exact PCM hashing (10,278 groups) and the known MaCro ⊃ Common Voice provenance — disclosed
+  as a deviation from §1 dedup step 3.
+- P1 baseline on the FINAL M (1,829 rows): M 20.74 % frozen, **S(P1) = 21.030** (D 20.35 / K 14.67 / R 32.06 unchanged).
+- Tokenizer on the frozen N: 0 `<unk>` rows in every source; tokens/s p99 ≤ 8.73 (max 11.16 madasr) — within the ≤11 p99 rule;
+  longest clips are the old-corpus 29.98 s rows already profiled at microbatch 12 (8.49 GiB); new rows ≤ 22.8 s.
+- Candidate-count reconciliation: macro_filtered 550,921 ids → 550,617 ingested (304 density rejects) → 543,420 retained;
+  macro_validated 29,583 → 29,462 ingested (109 duration mismatches + 12 density) → panel only.
+- G0.6 (council E wording adopted): G0.6 uses the owner-amended machine-consensus rule including each bucket's random sample and
+  assigned board clips, both strata reported separately (`machine_audit_verdicts_with_board.json`: macro_filtered 0.18 % / 0 %,
+  madasr 0.57 % / 0 %, vaani 1.89 % / 0.09 % (board 1/60 catastrophic-like reported separately) — all pass). The earlier
+  hypothesis-directed owner verdicts are withdrawn; the corrected owner assessment is an informal reference spot-check.
+- Cross-card amendment (council E wording adopted): the registered 200-update loss-agreement threshold of 1 % was exceeded
+  (1.582 %) and the failure is preserved; before pilot training the loss-block agreement is a diagnostic; identical cut ids, LRs
+  and finite losses remain mandatory; A6000 decision eligibility requires the 8k controls to agree within 0.10 pp S / 0.20 pp D /
+  0.30 pp per source; A6000 arms pass against both controls; if agreement fails, decision arms run on the A5000.
+- N_final candidate unions frozen (`nfinal_candidates.json`): macro 726.5 new h; macro+madasr 875.4; macro+vaani 843.9; all three
+  992.9; any union without MaCro ≤ 266 h < 500 → MaCro must pass for Phase 4 to continue. If the admitted union equals a tested
+  single arm, that arm's 8k checkpoint is reused; a distinct union trains from init A with its own schedule prefix.
+- Ledger corrected: six 8k runs ≈ 54.5 GPU-h at 880 steps/h; continuation ≈ 161 GPU-h; H=150k ≈ 29.9 nominal epochs of N (H and
+  the stopping rules unchanged; the earlier "16–18 epochs" text is superseded).
+- Wave plan (council E Q8) adopted: wave 1 O_A5000 + O_A6000 (running); wave 2 O+macro_filtered (A5000) + O+madasr (A6000);
+  wave 3 O+vaani (A5000); wave 4 N_final (A5000, if distinct); admission tests exactly as council E's table (m=3, 99.1667th
+  percentile), stop rules: non-finite / empties >1 % / D > 25.35 %.
+- Reporting cadence amended by the owner: an update after EVERY validation (each 2,000 steps) instead of hourly.
+
+## 8g. Robustness policy (owner 2026-09-06: "training must complete on its own; prefer the A5000, switch to the A6000 if busy;
+survive terminal or process death; always resume")
+- Every run is driven by a systemd user unit `p4-sup-<run>` (`experiments/p4/run_supervised.sh`) that survives the terminal and the
+  session: it picks the preferred card if no OTHER user's compute process is on it and ≥19.5 GB is free, otherwise the other card,
+  otherwise waits; launches the worker unit (`run_arm.sh`, `--resume auto` whenever a checkpoint exists, KillMode=mixed so a stop
+  reaches only the trainer, Restart=no — the supervisor is the sole restarter); polls every 60 s; a foreign process on our card →
+  graceful stop (the trainer writes a resumable checkpoint at the next update and exits 4) → immediate re-queue on a free card;
+  a crash → re-queue after 11 min (past any unit auto-restart) with resume; completion = last logged update ≥ target.
+- Resumable checkpoints every 500 updates (rotated, last 2) in addition to validation/milestone checkpoints, so any loss is ≤500
+  updates (~35 min). Cross-card resume is allowed (init weights, optimizer, sampler cursor and RNG are card-independent; the two
+  cards draw different dropout masks after a hand-over — accepted and disclosed).
+- The two controls launched before this policy were ADOPTED by their supervisors at updates 740 / 254; they still checkpoint only
+  at validations (every 2,000) because the periodic rule entered the trainer after their start.
+- Wave-2/3 arms are queued under supervisors (macro_filtered → A5000, madasr → A6000, vaani → A5000 preferences) and take a card
+  only when it is free of our own and any foreign process.
+
+## 8h. Owner ruling 2026-09-06 22:3x UTC: A5000 ONLY, serial
+The co-tenant's 33 GB job occupies the A6000. The owner ruled: rely on the A5000 and complete the work serially. Consequences:
+the O_A6000 control is abandoned at update 4,038 (its partial validations at 2k/4k are kept as a cross-card observation:
+S within 0.08 pp of O_A5000); no A6000 arm exists, so the cross-card admissibility rule is moot; all arms compare with O_A5000;
+order on the A5000: O_A5000 → O+macro_filtered → O+madasr → O+vaani → N_final → continuation. Supervisors run in only-preferred
+mode (never migrate). The A6000 amendment (§0) is withdrawn for the rest of Phase 4 unless the owner re-enables it.
+
+## 8i. Share-a-card policy (owner 2026-09-07 "work smart", supersedes 8h's whole-card assumption)
+Measured footprint over 7,774 updates: peak reserved 9.21 GiB median / 9.23 GiB max, peak allocated 8.72 GiB max, worst case a
+microbatch of twelve 30 s clips. Therefore a run no longer waits for an EMPTY card: it takes whichever card has ≥12,000 MiB free
+(9.23 GiB + ~2.7 GiB cushion), sharing with a co-tenant's idle notebook; it yields (graceful checkpoint, re-queue) only if free
+memory on its card falls below 2,500 MiB, i.e. when the co-tenant actually needs the space. Watchdog lowered 17.0 → 13.0 GiB so
+our process stops long before it can squeeze anyone. Card assignment is recorded per run; arms may therefore run on either card,
+and the ruling of §8d applies: the 8k cross-card agreement test is UNCOMPLETED (the A6000 control was abandoned at 4,038; its 2k/4k S agreed within 0.08 pp,
+which does not certify the missing 8k D and per-source thresholds — continuing is a disclosed protocol deviation), so **every arm is compared with O_A5000 and the card of each run is disclosed**; the two cards'
+partial controls agreed within 0.08 pp S at 2k and 4k, which is the only cross-card evidence on record.
+
+## 8j. Arm results
+- **Control O (8,000 updates, A5000 then A6000):** S 21.073 (P1 21.030). D 20.32 / M 20.57 / K 14.93 / R 32.76, conversational
+  21.47, guards pass. Reading: 8k more updates on the old corpus alone changed S by **+0.043 pp vs P1**. Its S was still
+  DECLINING (21.54 → 21.32 → 21.17 → 21.07), so this does NOT establish saturation (council F Q7); it establishes the
+  comparator every arm is measured against, with training/hardware variation not separated.
+- **O+macro_filtered (8,000 updates, A6000): ADMITTED.** Authoritative record `experiments/p4/admission_macro_filtered.json`:
+  S 20.531 vs O_ref 21.073, **ΔS = −0.542 pp, paired 95 % CI [−0.736, −0.352], simultaneous upper quantile −0.314 pp** at
+  1−0.025/3 (9,727 sentence clusters, 10,000 draws, seed 20260905, clusters coupled across panels; the tool's per-panel WERs
+  reproduce the trainer's to 3 decimals from val_preds + manifests, verifying hypothesis ordering). Guards pass: D −0.11,
+  conversational +0.42 (limit +0.50), worst source indicvoices +0.79 (limit +1.00), empties 0.019 %. Panels: D 20.21 / M 18.03 /
+  K 14.90 / R 33.07. Trajectory S: 21.22 → 21.18 → 20.70 → 20.53 (the conversational guard failed at 2k/4k/6k, cleared at 8k).
+  **CORRECTION (council F Q7, 2026-09-07): the first version of this entry recorded Δ −0.517, CI [−0.62, −0.42], upper −0.44.
+  Those numbers were transcribed wrongly by the orchestrator and never existed in any artifact; the JSON above is authoritative
+  and the superseded line is preserved here.**
+- **Honest characterisation of that result (council F Q6):** at equal 8,000-update budgets the MaCro arm improved the registered
+  composite by 0.542 pp, driven predominantly by a 2.54 pp improvement on held-out MaCro (M contributes ≈93 % of ΔS: D −0.066,
+  M −0.508, R +0.031, K −0.003 weighted pp), while D improved 0.11 pp and conversational WER worsened 0.42 pp within tolerance.
+  It supports admission under the registered objective; it does NOT demonstrate broad improvement, label superiority, or a
+  predicted FLEURS gain. Equal updates also do not hold old-data exposure constant: adding MaCro roughly halves O's share of
+  presentations (MaCro is 50.1 % of presented rows in O+macro_filtered, 42.9 % in N), so the comparison measures the whole
+  corpus-mixture intervention.
+
+**Arm results, 2026-09-08 (frozen tool `p4_admission_test.py`, m = 4, quantile 0.99375, 10,000 draws, seed 20260905):**
+- **O+madasr — ADMITTED** (`admission_madasr_m4.json`, 01:30 UTC). S 20.080 vs O_ref 21.073, Δ **−0.994**, 95 % CI
+  [−1.216, −0.769], simultaneous upper **−0.702**; all four tests pass; guards vs control pass (D +0.199 ≤ 0.30, worst
+  source SUBAK.KO +0.48 ≤ 1.0, conversational −0.016 ≤ 0.5, empties 0.019 %); ordering proof passed on all eight panel
+  recomputations (max 0.0005 pp). Per panel [arm, control]: D [20.518, 20.319], M [21.093, 20.565], R [20.237, 32.763],
+  K [15.266, 14.928] — the gain is concentrated on R (council H Q3 disclosure applies verbatim); D, M and K are each slightly
+  worse than the control, within the registered tolerances. Also continuation-eligible vs P1.
+- **O+vaani — NOT ADMITTED, INCONCLUSIVE** (`admission_vaani_m4.json`, 02:38 UTC). S 20.999 vs 21.073, Δ **−0.074**, 95 % CI
+  **[−0.253, +0.106] includes zero**, simultaneous upper **+0.154**; the three statistical tests fail, the guards pass. Per
+  §5: *"An inconclusive bucket (CI includes 0) is excluded with NO claim of equivalence or bad labels."* Vaani is excluded
+  from the union on that basis and on no other. Trajectory: +0.165 / +0.140 / +0.116 / −0.074 vs the control at 2k/4k/6k/8k —
+  it closed on the control late and finished marginally below it, nowhere near the −0.30 rule. Per panel [arm, control]:
+  D [20.338, 20.319], M [20.409, 20.565], R [32.153, 32.763], K [14.991, 14.928].
+- **Union U = O ∪ {macro_filtered, madasr}**, built at the hand-off by `p4_union_build.py --auto` (which refused until all
+  three verdicts existed): 1,179,937 rows, 1,841.3 h, 875.4 unique new hours beyond O (≥ 500 ✓), sha256 `135e014c…`, and
+  it is NOT a tested single arm → §8m requires its ONE 8,000-update pilot from init A before the continuation. Launched
+  automatically on the A6000 as `pilot_U`; its admission (vs O_ref, plus S(U) ≤ min over passing singles + 0.20 = 20.080 +
+  0.20 = **20.280**, madasr being the lower single) is a human decision at its end. Fallback if U fails: MaCro's own 8k state
+  (the only passing single with ≥ 500 new hours).
+
+- **U = O ∪ {macro_filtered, madasr} — NOT ADMITTED (2026-09-08 13:01 UTC, `admission_U_m4.json`).** S **19.871** vs O_ref 21.073,
+  Δ **−1.202**, CI [−1.412, −0.995], simultaneous upper **−0.939**; the +0.20 rule PASSES (19.871 ≤ 20.280); D −0.024 vs control;
+  M 18.603 vs 20.565; R 24.657 vs 32.763; K 15.078 vs 14.928. **Failed on ONE guard: conversational slice +0.829 vs the control
+  (limit +0.5)**; worst D source indicvoices +0.684 (limit 1.0, passes). The best composite of any arm, excluded by the
+  registered regression guard by 0.33 pp — the "helps read speech, hurts conversation" trade the guards exist to catch, and
+  the owner's generalisation principle (§0) is exactly why it is not overridden. Neither single showed this: madasr alone had
+  conversational −0.016 vs control, MaCro alone passed; the COMBINATION degraded it. Per §8t.1 the corpus for N is the frozen
+  **O+macro_filtered: 1,084,696 rows / 1,692.4 h / 726.5 unique new hours**. madasr's 149 h are not in the production corpus.
+
+## 8k. Council F (mid-ablation, 2026-09-07) — rulings adopted
+- **Q1 selector: KEEP S FROZEN** for admission AND final checkpoint selection (0.60 D / 0.20 M / 0.10 R / 0.10 K, ties to the
+  earlier checkpoint by 0.05 pp). Switching to D after seeing that MaCro's benefit concentrates on M would be post-hoc selector
+  shopping; S measures the registered panel mixture and does not claim FLEURS optimality.
+- **Q2 conversational: NO abort rule added.** A three-failure rule would have killed the MaCro arm at 6k before its registered
+  8k pass. Checkpoint INELIGIBILITY is the protection, provided (i) ineligible checkpoints never reset plateau patience and
+  (ii) the selected eligible checkpoint is preserved independently of rotation. **Continuation/final guards use the frozen P1
+  baseline, not O_ref**: every D source ≤ P1 +1.0 pp; conversational ≤ P1 +0.5 pp = **22.075 %** (exact P1 21.575, reconciled;
+  the "21.58" elsewhere was rounding). Admission against O_ref does NOT certify continuation eligibility. MaCro's 8k
+  conversational 21.892 is eligible under the P1 rule.
+- **Q3 N_final:** point threshold is the tighter of S ≤ 20.773 (O_ref −0.30) and S ≤ S(best passing single) + 0.20 = **20.731**
+  if MaCro stays best. Fallback if N_final fails = the lowest-S passing single arm **whose own frozen corpus has ≥500 unique new
+  hours** — with the frozen inventories only O+macro_filtered (726.5 h) qualifies (madasr 149.0, vaani 117.4, both together 266).
+  No further union search, no partial bucket admission. m stays 3 even if an arm is skipped by owner authorisation.
+  Permitted claim: "Among the frozen corpus candidates evaluated at 8,000 updates, this corpus was selected by the registered
+  weighted-dev, regression-guard and minimum-hours rules; the selected-union comparison is conditional on those development
+  results and does not independently establish an optimal corpus or transfer to FLEURS."
+- **Q4 horizon: KEEP H=150,000** and the plateau rule (anchor 50k, ≥0.20 pp cumulative reset, 10 non-reset validations,
+  earliest stop 70k). Nominal epochs: O+MaCro 34.85, all three 29.86 — monitored, not a reason to change a registered schedule
+  after seeing pilots. The verified 8k prefix (optimizer, sampler, RNG, scheduler) is preserved: no second warmup, no LR reset.
+- **Q5:** finish O+madasr and O+vaani (~18–25 GPU-h) unless the owner declares a deadline; skipping records them as UNTESTED
+  and excluded, with m unchanged.
+- **Q8 the 20k progress gate is the decisive cheap check:** S ≤ 19.530 AND D ≤ 19.35 AND all main-run guards, else Phase 4
+  TERMINATES. From MaCro's 8k that demands a further **1.00 pp S and 0.86 pp D** — improving M alone cannot satisfy it. Cost to
+  reach the decision ≈ 15–19 GPU-h; the failure it prevents ≈ 157–210 GPU-h.
+- **Terminal stop semantics (implemented 2026-09-07 in `run_supervised.sh`):** a registered STOP (progress gate, plateau, pilot
+  abort, watchdog) or an ABORT terminates the run; the supervisor exits WITHOUT restarting and no FLEURS decode follows. Only
+  `reason: graceful_stop` (card hand-over) and crashes are resumable. Previously the supervisor would have resurrected a run the
+  protocol had ended — the defect council F named in Q8.
+  **AMENDED 2026-09-07 by §8p (owner-delegated ruling): the phrase "and no FLEURS decode follows" is SUPERSEDED for the plateau
+  stop.** The supervisor semantics above are unchanged — no STOP is ever restarted — but a plateau STOP is a *normal ending*
+  that proceeds to §4 checkpoint selection and the §6 headline, exactly as reaching H does. The 20k gate failure, pilot aborts,
+  the watchdog and every ABORT remain terminal with no headline. The struck words are kept here verbatim for the record.
+
+## 8l. New bucket `cv17` — Common Voice 17.0 Bengali (owner-authorised 2026-09-07, registered BEFORE any of it is used)
+**OWNER RULING 2026-09-07 (verbatim intent: "that unconfirmed tier is the 1,186 hours, the part I would call bad. Yes,
+fucking remove that. No need any testing on those portion.") — the `other` split is PERMANENTLY EXCLUDED, not deferred.**
+The registered WER/CER quality filter below is STRUCK: it will not be run, in this phase or a later one, and `other` is not a
+candidate for any future registration. `invalidated` was already never ingestible. **SUPERSEDED SAME DAY by the owner's second ruling below**, which removed the whole release rather than one split; the
+sentence is kept because it records what the first deletion covered: the 25 tar files of `other` (26.42 GB) and the
+`invalidated` tar (296 MB), deleted from `data4/cv17/audio/bn/` on 2026-09-07.
+
+**OWNER RULING 2026-09-07, second (verbatim intent: "the fully human validated data set we took from Mozilla ... Remove
+all seventeen version items") — EVERY release-17 artefact is deleted, not just the unconfirmed split.** Removed:
+`data4/cv17/` in full (3.578 GB, 7,780 files: the dev/test/train tars, 7,682 converted WAVs, 602 MB of transcript TSVs and
+the ingest logs), the Hugging Face cache stubs `datasets--mozilla-foundation--common_voice_17_0` and
+`datasets--fsicoli--common_voice_17_0` with their lock directories, and the 29 raw tar member listings under
+`experiments/p4/cv17_recon/` in full (30 MB, listings and analysis). No arm or panel manifest referenced any of it; nothing in the training
+pipeline depended on it. **Nothing of release 17 remains.** The 888 KB analysis record (`GO_NO_GO.md`, six result JSONs, the PCM hash table and
+their scripts) was deleted in the same ruling, and every claim that rested on it is STRUCK in §8n(iii) rather than left
+standing without evidence. The project makes no citable measurement about release 17.
+**Why the whole release goes and not only the bad split:** §8n-bis. Release 17.0 is nine releases older than the 26.0 we
+actually train on, so none of it was ever a candidate. Keeping a stale release beside the live one is only an invitation
+to confuse the two.
+**No Phase-4 training row has ever come from any Common Voice unconfirmed tier, and this is now verified at the source rather
+than inferred.** `tools/convert_commonvoice.py` — the Phase-1 ingester — reads `validated.tsv` ONLY, from Common Voice **26.0**
+(`cv-corpus-26.0-2026-06-12/bn`), and additionally excludes that release's own `dev.tsv` and `test.tsv` so the public benchmark
+split stays uncontaminated. Its docstring is explicit: "Keeps ONLY rows in validated.tsv (community-validated, core S0/S1 tier)".
+(A sentence that stood here about "425 `other` clips matched by an identity join" cited a deleted release-17 measurement and is
+STRUCK; see §8n(iii).) What stands without it: every Common Voice row in arm_O came from release 26.0's validated tier, and
+removing any of them would cost the entire freeze — arm_O is hashed in FREEZE.sha256 and is the base of every arm and of O_ref.
+**Why, from measurement not intuition.** Dev-panel error decomposition at the MaCro arm's 8k checkpoint: IndicVoices 45.3 %
+of all errors (17.30 % WER), SUBAK.KO 33.6 % (36.03 %), OpenSLR 7.8 %, CommonVoice 7.1 %, Kathbath 6.1 %. SUBAK.KO's failure
+was tested against four hypotheses and none explains it: duration (uniformly bad in every band, 24–56 %), numerals (38.40 %
+on digit-bearing vs 35.48 % digit-free), compound-writing convention (1.2 % of its errors), truncated references (0 detected);
+median hypothesis/reference length ratio is 1.000, so the model emits the right number of words and the wrong words — genuine
+lexical difficulty in formal/literary Bengali. The registered headline (FLEURS) is read encyclopedic prose, the same register.
+Every bucket added so far is the WRONG register for it (MaCro everyday prompts, RESPIN agri/banking prompts, Vaani image
+descriptions), which is consistent with MaCro moving its own panel 2.54 pp and the locked panel 0.11 pp.
+**Source and licence.** `fsicoli/common_voice_17_0`, config bn, **CC0-1.0**; Bengali prompts are largely Wikipedia-derived.
+Splits: `validated` 44,121 clips / 73.7 h (2+ listeners confirmed the recording matches the prompt), `other` 993,696 /
+1,181.4 h (not yet confirmed), `invalidated` 7,811 (community REJECTED — never ingested), dev/test/train ⊂ validated.
+We currently train on 41.5 h from an older CV release.
+**SUPERSEDED 2026-09-07 — the two split figures on the line above are wrong and are kept verbatim for the record.**
+Measured: `validated` 44,121 rows / 73.723 h listed but only 39,882 clips / 66.663 h downloadable (4,239 rows have audio
+in no tar); `other` 997,561 clips / 1,185.797 h. Both splits are NO-GO / deferred; see §8n(iii) for the reason, which is
+not the inventory: release 17.0 is nine releases older than the 26.0 we train on, so it was never new data (§8n-bis).
+**Leakage, measured on transcripts BEFORE downloading audio (`data4/cv17/leakage_text.json`): FLEURS test 0 sentences,
+FLEURS validation 0** — the headline is unaffected. D 495 / holdout 463 / M 1,825 sentences do appear in CV, because
+Bengali.AI ran the Common Voice Bangla campaign and MaCro shares its prompt pool; those rows are removed by the builder's
+protected-sentence rule exactly as MaCro's were, which is what keeps panel M valid. 33,819 of 39,875 validated and 350,435 of
+474,987 `other` sentences are already in our training text; `other` still carries **124,552 unseen sentences in 244,284 clips**,
+and MAX_PER_TEXT=5 is nowhere near binding (625,283 of our sentences have a single recording; 3.18 M free slots).
+**Registered quality filter for `other` — STRUCK 2026-09-07 by the owner ruling above; kept verbatim for the record, never to be run.** `validated` is human-confirmed and takes the ordinary
+cleaning only. For `other`: decode once with the Phase-1 FastConformer — NOT hishab, which is suspected to have trained on
+Common Voice and would confirm these clips trivially — and **drop a clip iff WER > 0.60 AND CER > 0.40** against its
+frozen-surface reference. The AND is deliberate: gross defects (silence, wrong prompt read, truncation, non-speech) fail both
+surfaces, while a hard-but-correct clip with one rare word wrong fails at most one. This is a defect filter, not a
+select-the-easy filter like the upstream Whisper WER<15 % rule; the retained/removed rates and the removed-clip examples are
+published. Everything else is the registered pipeline: G0.9 uniformity, PCM-hash dedup across all sources, fingerprint audit
+against every protected panel, MAX_PER_TEXT, and its own 8,000-update ablation arm.
+**Multiplicity consequence:** predeclaring a fourth single-bucket arm makes **m = 4**; MaCro's admission is re-tested at m=4
+(quantile 1−0.025/4) and must still clear, otherwise the earlier m=3 verdict is reported as superseded.
+
+## 8m. Council G (expansion review, 2026-09-07) — CV17 DEFERRED out of Phase 4; rulings adopted verbatim
+- **CV17 status:** "CV17 was proposed after inspection of Phase-4 development results. Its Phase-4 ingestion/filtering/ablation
+  plan is deferred. No CV17 recordings or targets enter Phase-4 training, and no CV17 ASR filtering or pilot GPU work is charged
+  to this phase. CPU admission reconnaissance may proceed without delaying the registered runs or changing their frozen
+  artifacts. A failed Phase-4 progress gate does not activate a CV17 rescue run." (The 27 GB download and the CC0 licence
+  record are kept; the `other` ingest was NOT started; the partial `train` ingest is reconnaissance only.)
+- **Multiplicity:** m stays **4** because CV17's slot was announced in §8l, even though its arm is deferred; deferring or
+  skipping an arm never reduces m. Every admission requires the bootstrap upper quantile at 1−0.025/4 = **0.99375** below zero.
+  **MaCro re-tested at m=4: ΔS −0.542, quantile −0.306 < 0, all point/guard criteria hold → still ADMITTED**
+  (`experiments/p4/admission_macro_filtered_m4.json`). The m=3 record is historical.
+- **Adaptive-discovery disclosure (registered):** "The CV17 proposal was generated from error analysis of the same development
+  panels used for admission and checkpoint selection. It was not prospectively chosen independently of those results. No CV17
+  data were used in the selected Phase-4 model. Any subsequent CV17 evaluation on these panels constitutes adaptive development
+  evidence; increasing the number-of-comparisons correction alone does not make that evaluation independent confirmation."
+- **Claims corrections (my overstatements, retracted):** (i) the SUBAK.KO analysis weakens several explanations but does not
+  establish a unique cause — equal median word counts do not exclude compensating insertions/deletions; (ii) transfer from
+  Common Voice prompts to SUBAK.KO or FLEURS is a hypothesis, not a finding; (iii) **Vaani is spontaneous image-description
+  speech, so "every candidate bucket is read speech" was false**; (iv) the proposed WER>0.60 AND CER>0.40 rule is an
+  ASR-disagreement filter over human prompts that may reject correct difficult recordings and retain defective pairs — calling
+  it "a defect filter, not a select-the-easy filter" was too strong; (v) zero CV17/FLEURS transcript matches does not certify
+  absence of audio leakage; (vi) the mirror exposes train/dev/test/other/invalidated and NOT a `validated` split, so the
+  44,121-clip figure from validated.tsv is not reconciled against available audio.
+- **Marginal-value arithmetic that reframes the gate (council G Q5):** panel D's reference words are 52.9 % IndicVoices and
+  18.9 % SUBAK.KO, so the outstanding 0.87 pp of D needs ≈ **1.64 pp on IndicVoices alone** or **4.62 pp on SUBAK.KO alone**
+  (≈480 fewer edits). Conversational coverage is therefore central, and sampling weights stay frozen — upweighting IndicVoices
+  is a separate intervention needing its own arm.
+- **Execution order adopted:** finish MADASR and Vaani → build exactly ONE union U = O ∪ (all passing buckets) under the frozen
+  dedup/precedence/cap rules → reuse MaCro's 8k state if U equals it, else one 8k run of U → admission vs O_ref plus
+  S(U) ≤ S(best passing single) + 0.20 (= 20.731 if MaCro stays best) → resume to the unchanged 20k gate at ≈78–96 cumulative
+  GPU-h → on failure TERMINATE with no FLEURS decode. No subset search, no second union, no mixture rescue.
+- **Budget ceiling 300 GPU-h** including the ~45 spent; CV17 receives **0 further Phase-4 GPU-h**; only the owner raises it.
+- **Yield-floor reconciliation:** the registered 2,500 MiB free-memory floor was replaced 2026-09-07 by a co-tenant-DEMAND rule
+  (yield only if a new foreign process appears or foreign memory grows > 2,000 MiB), because the free-memory floor stopped a
+  healthy arm six times in eleven minutes — free memory is low precisely because our own 9.2 GiB is allocated.
+  **Refined 2026-09-08 06:50 UTC:** a NEW foreign process must be present on two consecutive 60-s polls before we yield to it;
+  memory growth > 2,000 MiB still yields at once. Cause: a 358 MiB co-tenant job that lived under a minute forced pilot_U into a
+  checkpoint-and-restart at update 3,310 (≈2 min lost). Applies to supervisors launched after the change; pilot_U's running
+  supervisor keeps the older rule for its remaining hours (a bash script is never edited in place under a running shell).
+
+## 8n-bis. Release-choice error on the `cv17` registration (owner question 2026-09-07: "why aren't you using the latest common voice 26?")
+
+**The owner is right and this is my error, recorded rather than quietly fixed.** We already train on Common Voice **26.0**,
+the NEWEST release that exists. `tools/convert_commonvoice.py` reads `data2/raw/commonvoice/cv-corpus-26.0-2026-06-12/bn`,
+`validated.tsv` only, minus that release's own `dev.tsv`/`test.tsv`, keeping 25,935 rows / 41.51 h over 2,383 speakers
+(24,712 rows / 39.5 h survive Phase-4 dedup and caps). §8l then registered `fsicoli/common_voice_17_0` as a *new bucket*.
+**Release 17.0 is NINE releases older than 26.0**, so it was never new data: it is a stale snapshot of a corpus we had
+already ingested at a newer release.
+
+Verified against Mozilla's own version registry (`common-voice/cv-dataset`, `datasets/scripted-speech`, 54 releases
+listed): 21.0 2025-03-14 · 22.0 2025-06-20 · 23.0 2025-09-05 · 24.0 2025-12-05 · 25.0 2026-03-09 · **26.0 2026-06-12 is
+the newest; there is no 27.0.** The Hugging Face ecosystem is what misled the registration: `mozilla-foundation` publishes
+up to 17.0 and `fsicoli` up to 22.0, so the newest release reachable on HF is four behind what we already had on disk.
+
+**Consequence for §8n(iii).** That section's recycling measurements are STRUCK, their artefacts having been deleted on
+the owner's ruling. The reasoning that replaces them needs no measurement: Common Voice is a cumulative corpus, so an
+older release is contained in the newer one we already trained on, by construction. The decoder-blindness of PCM-sha256
+survives as a separately registered limitation on the *instrument*; it is why a hash could not have seen such an overlap,
+never why one existed.
+
+**Consequence for any future Common Voice work: there is nothing material to gain, and this is now measured from an
+external source that survives the deletion.** Mozilla's own release registry (`common-voice/cv-dataset`,
+`datasets/scripted-speech/cv-corpus-<v>.json`) gives Bengali per release:
+
+| release | date | validated clips | validated h | `other` | `invalidated` | all clips |
+|---|---|---:|---:|---:|---:|---:|
+| 17.0 | 2024-03-15 | 44,121 | 53.51 | 997,561 | 7,811 | 1,049,493 |
+| 20.0 | 2024-12-06 | 44,351 | 53.81 | 998,046 | 7,860 | 1,050,257 |
+| 23.0 | 2025-09-05 | 44,634 | 54.18 | 999,488 | 7,926 | 1,052,048 |
+| **26.0** | **2026-06-12** | **44,739** | **54.32** | 999,500 | 7,939 | 1,052,178 |
+
+Every bucket's COUNT grows across these releases and Bengali gained a **net 618 validated clips (+0.81 h) in 27 months
+and nine releases**. **Council H caveat, adopted:** Mozilla documents release-time exclusion of problematic clips and
+partitions that can change between releases, so growing aggregate counts do NOT prove a clip-level subset relation; "618
+new recordings" is a net figure, not an identifier-level one. The cumulative-release description is Mozilla's own; it is
+not used here as a proof of strict containment.
+
+**Phase 1 already holds every usable validated clip of the newest release.** 44,739 validated − 9,402 dev − 9,402 test =
+**25,935**, which is exactly the row count `data2/commonvoice/manifest.jsonl` contains. Not one clip was lost to the
+duration or empty-text filters. Re-downloading 26.0 would yield **zero** new rows. No forecast is made about a future release (council H). No further
+Common Voice ingestion is planned. **Residual, not closed:** the identity assertion `ingested IDs = validated IDs \\ (dev ∪ test)`
+has not been verified at the identifier level — the Phase-1 manifest keeps only `client_id[:16]`, not the clip path, and the
+26.0 raw tree is gone — so the 25,935 = 44,739 − 9,402 − 9,402 identity is a row-count match, not an ID match.
+
+## 8n. Main-run readiness workstreams (2026-09-07, four parallel agents; every figure below re-verified against the raw files by the orchestrator before it was written here)
+
+**Nothing in this section changes the freeze, the arms, the panels, the selection score, the guards, the 20k gate or the
+budget.** It fixes code that implements them, corrects two factual errors in this document, and records one measured
+instrument limitation.
+
+### (i) Gate and selection code — eleven defect IDs (D1–D11), all fixed, all covered by executable tests
+`experiments/p4/tests/test_main_run_gate.py` (`results.json` records the sha256 of `p4_train.py`, `p4_common.py` and
+`run_supervised.sh` it was run against). The one test that was SKIPPED at first run — `retention_defect_reproduced_on_the_superseded_code`,
+which needs the pre-fix trainer — now runs against `experiments/p4/tests/superseded/p4_train_pre_D4_2026-09-07.py` (sha256 f0ae17de…)
+and passes: the D4 defect is demonstrated on every run of the suite, not asserted. Current suite: see §8o.
+- **D1** `p4_common.py` still held the SUPERSEDED plateau rule (`PLATEAU_FROM=30000`, 5 validations). Council F Q4 (§8k)
+  re-ruled it to anchor 50k / 10 non-reset / earliest stop 70k. Fixed, with an assertion that 50,000 + 10×2,000 = 70,000.
+- **D2** the plateau reset was measured against a MOVING best, so it was not cumulative: a run improving 0.15 pp every
+  validation forever would never have reset. Fixed with a sticky anchor.
+- **D3** an INELIGIBLE checkpoint (guards failing) reset plateau patience and became the best — council F Q2 condition (i)
+  says it must not. Fixed: only guard-passing validations touch the anchor or the best; an ineligible one is a non-reset.
+- **D4** retention had no notion of eligibility, so `best/` was best-3-by-S over ALL checkpoints. Three ineligible lower-S
+  checkpoints evict the best eligible one, and with `keep_last=2` the unlink of its hard link **deletes the only copy of the
+  model §4 says must be selected**. Reproduced on the pre-fix code. Fixed, plus a post-condition that ABORTs if the current
+  selection is ever not on disk. Cost: 1.39 GB/checkpoint, 9.5 TB free. **Bound corrected by council H:** every eligible checkpoint inside the band is
+  retained, and all 71 continuation validations could in principle fall within 0.05 pp, so the worst case is ≈99 GB
+  (75 validations from 2,000 → ≈104 GB); affordable, and the correct bound is stated rather than "at most one".
+- **D5** the sort implemented no tie band: S 20.47 @80,000 beat S 20.50 @60,000, where §4 gives ties within 0.05 pp to the
+  EARLIER checkpoint. Fixed (band swept from the best, never chained).
+- **D6** the 20k gate could be silently disabled by `--val-every`. Fixed: a validation at 20,000 is forced whenever the run
+  is going that far.
+- **D7** the horizon/effective-batch resume refusal was a bare `assert` — stripped by `python -O`, and an AssertionError is a
+  crash, which the supervisor treats as RESUMABLE: an infinite relaunch loop against a bad checkpoint. Fixed as a recorded
+  ABORT (exit 3).
+- **D8/D9/D10** the watchdog message and three docstrings still said 17.0 GiB after §8i lowered the ceiling to 13.0; the
+  external backstop `watch_p4.sh` defaulted to 17.0, i.e. 4 GiB **above** the trainer's own limit, so it could not fire for
+  any breach the trainer would not already have caught; and its A5000 UUID was hard-coded, so on the A6000 — where O_ref's
+  tail and the whole MaCro arm ran — our usage always read 0. That is not "no breach", it is no measurement. All fixed.
+- **D11** (found by the gate workstream, fixed by the orchestrator, who owns the file) `run_supervised.sh` reached
+  `rm -f runs/$RUN/STOP` on the launch path before any worker had exited, so a **fresh invocation** deleted the record of a
+  terminal outcome and resumed a run the protocol had ended — the resurrection council F #5 legislated against, one shell
+  command away. The in-loop classifier could never see it, because it only runs after a worker exits. Fixed: a startup guard
+  refuses to start (exit 5) on any STOP whose reason is not `graceful_stop`, on an unparsable STOP, and on any ABORT that is
+  not one of the registered infrastructure strings; the launch path now deletes a STOP only when its reason is
+  `graceful_stop`. `P4_OVERRIDE_TERMINAL_STOP=1` exists and requires an owner decision recorded here. Eight new end-to-end
+  cases drive the real script with an impossible memory requirement so no trainer can launch.
+- **Not a defect:** the continuation comparator was already the frozen P1 baseline (`baseline_p1.json`, init sha256
+  `61362a36…`, S 21.0296, conversational 21.575 → limit 22.075). It was hardened, not changed: the baseline is refused if it
+  lacks init A's provenance, and the 20k gate stops rather than proceed with a comparator it cannot vouch for.
+- **Operative gate constant.** The S threshold is evaluated **relatively** as S(P1) − 1.5 = **19.5296**, cross-checked
+  against the 19.530 printed by council F to 0.001 pp. The relative form governs; 19.530 is its rounded presentation.
+
+### (ii) Admission-test audit — two defects fixed, the ordering proof added
+`p4_admission_test.py`: `--m` defaulted to **3**, contradicting §8m, which fixes m at 4 permanently — anyone re-running it
+without the flag would have produced a non-registered verdict at the 0.99167 quantile that looked authoritative. Now
+`M_DEFAULT = 4`, the 0.99375 quantile asserted against §8m, achieved quantile written into the JSON. And `val.jsonl` was read
+as `readlines()[-1]`, so on a run that validated past the step under test it would have scored step-8000 hypotheses against a
+later checkpoint's S and guards without complaint; it now requires exactly one record with `update == step`.
+**Four things were already right and were left untouched:** the simultaneous bound was already the empirical percentile of
+the realised draws (no normal approximation anywhere), clusters were already frozen-surface reference strings sharing one id
+table across all four panels, corpus WER was already summed-edits / summed-reference-words inside each draw, and the guards
+already compared against O_ref. The **ordering proof** (recomputed per-panel WER must match the trainer's own `val.jsonl` to
+0.005 pp, plus D's empty count, list length, and arm/control agreement on reference strings and word counts) did not exist
+and is the substantive addition: worst live disagreement 0.00048 pp; negative tests refuse on a two-hypothesis swap
+(0.0793 pp) and on a dropped hypothesis. Cross-panel cluster coupling proved with a fixture: coupled Δ sd 0.09361 pp vs
+uncoupled 0.07011 pp. `p4_union_build.py` reproduces all five frozen manifests **byte-identically** against `FREEZE.sha256`
+and refuses when U equals a tested single arm.
+
+### (iii) Common Voice release 17 — WITHDRAWN 2026-09-07, artefacts deleted, claims struck
+
+**This section formerly recorded a CPU reconnaissance of release 17.0 and its measurements. The owner ordered every
+release-17 artefact deleted, including the 888 KB analysis record that backed those figures. Claims whose evidence no
+longer exists are STRUCK rather than left standing.** Struck: the corrected split inventory; the PCM-sha256 sample and
+its zero-duplicate result; the identifier-join recycling rates; the 120-pair waveform cross-correlation; the per-split
+incoming-defect ratios; the usable-hours upper bounds; the panel-overlap counts against release 17. None of those may be
+cited anywhere in this project again.
+
+**Two findings survive because their evidence never depended on the deleted artefacts, and both are re-checkable today.**
+
+1. **The registration was a release-choice error, not a data finding.** See §8n-bis. Release 17.0 is nine releases older
+   than the 26.0 the project already trains on, so it was never new data. Evidence: `tools/convert_commonvoice.py` in this
+   repository, and Mozilla's public version registry.
+2. **Instrument limitation, wording fixed by council H (kept as a rule; it follows from what a hash is, not from any
+   destroyed measurement):** "PCM SHA-256 detects equality of the canonical decoded sample representation. It does not
+   establish recording independence: the same underlying recording can produce unequal PCM representations after decoding,
+   re-encoding, resampling or other transformations. This is an instrument limitation, not an empirical finding about
+   Common Voice 17. Future overlap audits must combine source-identity checks and calibrated audio fingerprinting with exact
+   PCM hashing. No cross-decoder miss rate is claimed." The MaCro ∩ CommonVoice 1,047 exact copies (§8b) remain positive
+   evidence backed by the surviving audit; no claim is made about WHY they were catchable.
+
+**What this does NOT put in doubt.** No release-17 row ever entered an arm or a panel — verified while deleting, by
+grepping every frozen manifest. The panels are protected by the protected-sentence rule, which operates on text and is
+unaffected. `arm_O+vaani` contains only Vaani `wavs_train` rows (85,947 of 86,861). **Correction (council H):** Vaani validation and test
+are not selection panels but they ARE protected one-shot evaluation sets (§2), and their absence from the fingerprint index
+remains a DISCLOSED coverage limitation on the one-shot reports, not a non-issue.
+
+### (iv) Conversational survey (research only; nothing admitted, nothing may be admitted without its own registration)
+`experiments/p4/surveys/conversational_survey_2026-09-07.md`. Headline: **there is no large, clean, unencumbered pool of
+Bengali conversational speech that we overlooked.** Ranked by admissible-after-our-cleaning hours × label quality × licence:
+1. **SPRING-INX R1+R2, Bengali-script-only subset, ≈280 h** (estimate from the character share 40.3 %/47.3 %, not the row
+   share 53 %, because code-switched rows are longer; a row-share estimate would have overstated it by ≈65 h). Genuinely
+   dialogue, human transcripts with vendor QC, CC BY 4.0 with the licence record already archived in-repo, ungated, 16 kHz.
+   We excluded it on a **script** rule (G0.9(a), 48.3 % Latin rows), not a quality one. Admitting it needs an owner amendment
+   with the threshold fixed BEFORE the retained rate is known, and a registered disclosure that this is a **content** filter
+   removing exactly the code-switched conversation, not a defect filter.
+2. **IndicVoices upstream delta, 0–116 h, UNRESOLVED** — the cheapest open question in the survey (a CPU-only diff of the
+   Phase-1 raw ingest count against today's 335,367 rows). Highest value per hour if real: D is 52.9 % IndicVoices reference
+   words. No claim of "+116 h available" is made.
+3. **Ben-10, ≈35 h** after the marker rule; CC0-1.0, linguist-validated, but likely fails G0.6 as written.
+   Everything else is read speech in the wrong register, forced-alignment or subtitle-derived, synthetic TTS, or has an
+   unverifiable licence, and is a NO. Arithmetic anchor: closing D's outstanding 0.87 pp needs ≈1.64 pp on IndicVoices alone
+   or ≈4.62 pp on SUBAK.KO alone.
+
+### (v) Correction to §2
+`data2/holdout_corpus.json` is described there as "speaker-disjoint IndicVoices-R". Counted this session it is **6,767 rows /
+10.72 h** across commonvoice 464, indicvoices 2,493, kathbath 626, openslr53 2,413 and subakko 771 — it contains **no
+IndicVoices-R rows at all**. Read the parenthetical as "disjoint from IndicVoices-R". No result changes; the phrase was
+load-bearing for the IndicVoices-R question in the survey and is corrected rather than left to be re-derived.
+
+## 8o. Council H (progress review before the continuation, 2026-09-07 ~20:40 UTC) — rulings adopted
+
+Packet: `experiments/p4/council/council_h_prompt.md` (contract + measured facts + pre-launch card + survey head + 11 questions);
+verdict: `council_h_progress.md`. **Headline: "Keep the registered science."** No hyperparameter changes; finish both pilots;
+one distinct union if required; existing admission, selection, horizon and stopping rules retained. Council found factual
+errors in the packet (corrected in place, listed below) and ONE uncovered failure boundary (Q11) that turned out to be a real
+defect when checked against the code. Everything below is now implemented and tested unless marked OWNER.
+
+- **Q11 — REAL DEFECT, fixed under 18 new tests.** The loop writes `step_20000.pt` BEFORE validating and deciding the gate; a
+  crash in between leaves a checkpoint that owes its decision, the resume starts at 20,001, and `if update == 20000` never
+  fires again — the gate would be silently skipped for the rest of the run. The PASS was also only a `print`. Fix, three
+  parts, all in `p4_train.py`: (1) a PASS is now durable — `runs/<run>/GATE20K` JSON plus `sel["gate20k"]="pass"` carried in
+  every later checkpoint; (2) **resume replays any owed validation** — a resume FROM a validation-step checkpoint reuses that
+  step's `val.jsonl` record if it exists (it is the evaluation of exactly that saved state) or decodes the resumed state if
+  not, then replays the gate/plateau decision and the retention; a checkpoint written later (U+500) owes nothing because
+  the process that wrote it had already completed them; (3) **invariant** — a resume at any update > 20,000 in a run heading
+  past 20,000 with no recorded PASS is refused as a terminal ABORT, which the supervisor does not retry. Tests cover: reuse
+  without decode, decode when no record, replayed FAIL is terminal and a fresh supervisor stays stopped, nothing owed at a
+  non-validation step, a lost plateau tick is restored, the invariant refuses/accepts/is inert in each case, duplicate
+  records are refused, and council's named boundary **S = 19.5300 FAILS, 19.5297 FAILS, 19.5296 passes** against
+  S(P1) − 1.5 = 19.5296.
+- **Q1 — every fix implements the contract; none needed an owner ruling.** D5 interpretation adopted verbatim: find the
+  minimum UNROUNDED eligible S, then select the earliest checkpoint within 0.05 pp of it. Plateau anchoring uses the minimum
+  eligible S independently of the tie-selected checkpoint. Tie-band retention bound corrected (§8n(i)). "Ten" → eleven defect
+  IDs. The skipped test now runs against the preserved pre-fix trainer. `P4_OVERRIDE_TERMINAL_STOP=1` may exist; USING it
+  requires an owner ruling recorded here.
+- **Q2 — union sequence confirmed; comparator ≠ fallback.** After both pilots: full admission test vs O_ref at 8,000, m=4,
+  quantile 0.99375. Form ONE union U = O ∪ passing buckets. If U is not a tested single arm it trains its own 8,000 prefix
+  from init A (≈9.5–11.1 GPU-h at 846–723 upd/h; never splice trained states). **U's point threshold is
+  S(U) ≤ min{ S(O_ref) − 0.30, min over PASSING singles of S + 0.20 }** — so if madasr's 8k S ends below MaCro's 20.531,
+  madasr sets the +0.20 bar even though it can never be the fallback. **If U fails, the fallback is MaCro's own 8k state**,
+  the only passing single whose corpus carries ≥500 new hours (MaCro 726.5 ✓, madasr 149.0 ✗, vaani 117.4 ✗). No second
+  union, no subset search. Note: madasr at 4k is NOT yet a pass on the O_ref guards it must clear at 8k.
+- **Q3 — in-domain-dominated admission is legitimate under the registered objective; the packet's "D moved −0.09" was
+  WRONG.** At matched 4,000 updates, madasr − control: **D +0.076, M +0.444, R −9.547, K +0.608 → S −0.7595; R contributes
+  125.7 % of the net**, i.e. every other panel is slightly worse. Card wording adopted verbatim: *"At 4,000 updates,
+  O+MADASR improved the registered composite by 0.7595 percentage points relative to the control at the same update. The
+  improvement was concentrated on RESPIN dev: R improved by 9.547 points, while D worsened by 0.076, M by 0.444 and K by
+  0.608. These are interim development results; the registered admission decision occurs at 8,000 updates."* And on any
+  admission: *"Admission establishes improvement under the registered weighted-development objective and regression
+  tolerances. It does not establish broad improvement, superior labels, or transfer to FLEURS. Bootstrap intervals
+  condition on the evaluated trained systems and do not quantify training-run or hardware variability; the registered
+  8,000-update cross-card agreement test was not completed."* Both guard systems are required and neither substitutes:
+  admission guards vs O_ref (each D source ≤ +1.0, conversational ≤ +0.5), continuation guards vs P1 (conv ≤ 22.075).
+- **Q4 — vaani runs to 8,000** (≈6.0 GPU-h remaining, not 5). No registered early stop applies. If it fails it is excluded
+  whole; a capped mixture or conversational up-weighting is a NEW registration, never a rescue.
+- **Q5 — relative thresholds govern:** S ≤ 21.0296 − 1.5 = 19.5296, D ≤ 19.35; the 0.001 pp check is a consistency check
+  against council F's printed constants, never gate slack. S = 19.5300 fails. (Implementation note: a float-representation
+  tolerance of 1e-9 pp is applied to both comparisons so that a value equal to the limit at the registered 4-dp precision
+  is not failed by binary representation; 1e-9 is five orders below the panel's WER quantum and cannot pass 19.5297.)
+- **Q6 — PCM-instrument rule kept with council's narrower wording** (§8n(iii) item 2 replaced verbatim). No CV17 experiment is
+  recreated. Vaani validation/test correctly described as protected one-shots with a disclosed fingerprint-coverage gap.
+- **Q7 — G0.9(b) unchanged; MaCro ∩ CommonVoice 1,047 copies unchanged; "counts grow ⇒ strict containment" rejected** and
+  softened in §8n-bis. Future re-releases of already-held corpora: screen publisher, lineage, release, canonical recording
+  IDs and historical exclusions BEFORE audio ingestion; register the novel delta prospectively against the full inventory.
+- **Q8 — change NO hyperparameter.** Epoch arithmetic corrected: MaCro 34.85, MaCro+madasr **32.04** (not 30.6), all three
+  29.86. The exposure is an accepted risk under the registered horizon + plateau + eligible-checkpoint selection. Resume
+  carries weights AND buffers, optimizer, scheduler position, sampler and RNG; a continuation LR reset would break the
+  literal-prefix design. Card corrected: max 1,958.7 h is **41.3 h short of 2,000**; what MaCro satisfies is G0.8's ≥500 new h.
+- **Q9 — budget fits:** ≈248 GPU-h (reuse MaCro) / ≈258 (distinct union) with 8 h eval allowance; at 723 upd/h throughout
+  the union path is ≈280. Council's CPU preflight (<30 min, 0 GPU-h) adopted as the pre-continuation checklist: verify code
+  hashes against the passing test record; fresh-launch the continuation so it loads the corrected code; re-issue admission
+  records with the hardened tool (m=4, quantile 0.99375, exactly the 8k record); verify corpus/checkpoint association and
+  full resume state; run the Q11 fault-injection test.
+- **Q10 — NEXT registration only, nothing admitted now.** (a) IndicVoices: pre-register a CPU-only identity + exclusion-ledger
+  diff whose OUTCOME is the measured unique admissible delta in hours; zero closes it; no invented cutoff. (b) SPRING-INX
+  amendment text prepared, **REQUIRES OWNER AUTHORISATION**, with the disclosure that it is informed by observed script rates:
+  *"For the next registration only, SPRING-INX R1/R2 may form a Bengali-script subset. After the frozen registered surface
+  transformation, retain a row only if it contains zero disallowed characters under the existing script predicate. Reject
+  the entire offending row; do not delete spoken words or transliterate. The whole-source script-loss ceiling is waived for
+  this explicitly defined subset. Report exclusions against the full source inventory. This is a content filter that removes
+  code-switched speech. All other admission requirements remain applicable."* ≈280 h remains an estimate. (c) Ben-10 stays in
+  the research queue.
+- **OWNER DECISION REQUIRED (not blocking the continuation; cannot fire before update 70,000): plateau STOP and the
+  headline.** §8k's terminal-stop sentence lists a plateau STOP among the outcomes after which "no FLEURS decode follows".
+  Read literally, the run's intended good ending — convergence — would deny the headline, and only reaching H = 150,000
+  would produce one. Council H: if the intended behaviour is to score the selected checkpoint after a plateau stop, that is an
+  **owner amendment**, not an implementation fix. Orchestrator's recommendation: amend §8k so that a plateau STOP and reaching
+  H are both *normal endings* that proceed to §4 checkpoint selection and the §6 headline, while the 20k gate failure, pilot
+  aborts, the watchdog and numerical ABORTs remain terminal without a headline. Pending the owner's word, the literal text stands.
+
+## 8p. Ruling: the plateau stop is a normal ending, not a failure (owner-delegated, 2026-09-07 ~21:10 UTC)
+
+**Owner, verbatim:** "Honestly, I cannot decide here. What you think, do ultra think, and you decide is up to you." Council H
+had ruled that changing §8k's literal text is an owner amendment, not an implementation fix. The owner delegated the amendment to
+the orchestrator. This section is that amendment and its reasoning; it is recorded as a RULING, not as a correction.
+
+**The ruling.** A run has two classes of ending.
+- **Normal endings → §4 checkpoint selection → §6 headline, decoded once:** (a) reaching H = 150,000; (b) a **plateau STOP**
+  at update ≥ 70,000 under the council F Q4 rule (anchor at 50,000; reset on ≥ 0.20 pp cumulative eligible improvement;
+  stop after 10 consecutive non-reset validations).
+- **Terminal endings → NO headline; a human looks; any further step needs an owner ruling recorded here:** (a) the 20,000
+  progress-gate failure — Phase 4 terminates by rule and is NOT overridable; (b) the §5 pilot aborts (non-finite loss, >1 %
+  empties, D > P1 + 5 pp); (c) the watchdog STOP (an infrastructure event on a shared card: fix the cause, then an owner
+  ruling may resume the run under `P4_OVERRIDE_TERMINAL_STOP=1`, or may decode the best eligible pre-event checkpoint);
+  (d) any ABORT (numerical divergence, a resume refusal, a violated premise: same treatment as (c)).
+The STOP record now carries `ending: "normal" | "terminal"` (`p4_train.stop`), so the post-run procedure reads the class
+instead of parsing the reason string. The supervisor's behaviour is unchanged: it restarts NEITHER class, which is right for
+both, because training does not resume after either.
+
+**Why this is the correct reading and not a loosening.**
+1. The plateau rule is a *convergence* criterion — the ordinary early-stopping rule — registered by council D Q5 to save
+   GPU-hours once the model has stopped improving. It is not a failure signal. It fires only when ten consecutive validations
+   show no 0.20 pp cumulative gain on the development panels, i.e. precisely when further training would not have changed
+   the selected checkpoint. The checkpoint it stops at is the same checkpoint the horizon path would have selected, reached
+   at lower cost. Denying it a headline would make the plateau rule a self-destruct and would put the orchestrator under
+   pressure to *not* let it fire — the kind of pressure a pre-registered rule exists to remove.
+2. It adds no degree of freedom to the headline. The headline's validity rests on FLEURS being sealed and decoded once
+   (§6), not on when training stopped. Checkpoint selection already chooses the minimum-S eligible checkpoint among the
+   ~71 validations on the development panels; the plateau rule, defined prospectively on those same panels, chooses nothing
+   the selection rule was not already choosing. FLEURS is never consulted by either. Council G's adaptive-analysis concern
+   (§8m Q1) is about *what enters the corpus*, and is untouched.
+3. The struck phrase was written on 2026-09-07 to implement council F Q8 — "the supervisor must not resurrect a run the
+   protocol ended" — and it correctly lists the plateau stop among the outcomes the supervisor must not restart. Its
+   authors bundled "no FLEURS decode" onto that list without distinguishing the run that ended because it *converged* from
+   the run that ended because it *failed*. Read literally it would mean the only way to earn a headline is to train to
+   150,000 regardless of convergence, which contradicts §4 ("Final checkpoint = lowest eligible S") and the purpose of the
+   rule that §4 itself registers two lines earlier.
+4. The terminal class is kept strict where strictness protects the science: a 20k-gate failure means the model is not the
+   1.5 pp improvement the phase exists to produce, and the one FLEURS decode must not be spent on it; a divergence or a
+   watchdog breach means the run's own premises broke and a human must look before anything is scored.
+
+**What this does NOT change.** H stays 150,000; the plateau constants stay (50,000 / 0.20 pp / 10 / 70,000); the selection
+rule stays; the headline protocol stays one decode with the registered success criterion (WER < 16.54 % and the 95 % CI of
+P4 − P2 below 0); the supervisor stays non-restarting for every STOP. Earliest possible plateau stop remains update 70,000,
+around 11 September; nothing here can fire before then.
+
+**Also recorded here, on the owner's question of lineage.** The weights Phase 4 starts from are the **output of Phase 1**
+(`experiments/fastconformer_ctc_bn_1kh/final.nemo`, sha256 61362a36), not the NVIDIA checkpoint directly. Phase 1 itself was
+restored from **`nvidia/stt_en_fastconformer_ctc_large`** (the English FastConformer-CTC large; NeMo log 2026-08-30 02:39:54)
+and trained 40,000 updates on the ≈984 h Bengali corpus with a fresh 1,024-token Bengali tokenizer. So the lineage is NVIDIA
+English → Phase 1 Bengali → Phase 4, with only the weights carried at each step and a fresh optimizer state at the Phase-4
+warm start (§4).
+
+## 8q. Initialisation-procedure comparison — staged init N (council I, 2026-09-07 ~21:40 UTC) — **PROPOSED, NOT YET EFFECTIVE**
+
+**Status: PROPOSED. Effective only upon the owner's recorded adoption of the budget terms in its §6 (350 GPU-h through N's
+40k decision, rising automatically to 525 GPU-h if N passes), before any init-N training update.** Packet:
+`experiments/p4/council/council_i_prompt.md`; verdict: `council_i_init_ablation.md`. Council I's own headline: *"Run one
+staged init-N arm on the final admitted corpus. Use the Phase-1-informed cold-start recipe, hold the one-shots, and describe
+the result as a comparison of two fixed training procedures. It will not isolate initialization from learning rate, or
+establish the best achievable result from either initialization."* Its prediction: A (warm start) weakly favoured at a
+literal 150k budget, 60 % subjective confidence, stated as a judgment not a probability.
+
+**Packet errors corrected here (council I caught them):** the FACTS listed SPRING validation/test among the one-shots — SPRING is
+excluded from this phase under §8f and its splits are NOT reinstated; "≈430–440 GPU-h total" was not a conservative upper bound
+(council: 425–488 before control completion and evaluation; hence the 525 figure). And §8p's sentence that a plateau stop fires
+"precisely when further training would not have changed the selected checkpoint" overstates what ten non-resets establish —
+they establish that ten validations did not improve the anchor by 0.20 pp, not that future ones would not have; §8p's ruling
+stands, its justification is read with that correction.
+
+**Orchestrator's addition under the owner's generalisation principle (§0), for the council's next review, NOT yet adopted:**
+council I's design decodes the one-shots on the winner only, so the loser's generalisation is never observed. Proposed: after
+the registered selection (by S, across both procedures, unchanged), decode the *holdout and Vaani official splits* — NOT
+FLEURS — on BOTH finalists (A's selected checkpoint and N's selected checkpoint) as **disclosed diagnostic reports**. The
+selection rule is fixed and prospective and the report on the non-selected model can NEVER change it; its use is to inform
+the NEXT phase's design. FLEURS stays a single decode on the S-winner. This is exactly the adaptive-analysis line council G
+drew (§8m Q1): a diagnostic that is disclosed is not a selection instrument; one that is consulted before selection is.
+
+**Launch-floor reconciliation (council I Q5, verified live 2026-09-07 ~21:45):** `run_supervised.sh` requires ≥ `P4_NEED_MIB`
+= 12,000 MiB free to launch on a card. With the co-tenant holding 13,550 MiB on the A5000, its pre-allocation free memory is
+11,014 MiB — BELOW the floor — while the A6000 (co-tenant 33,064) offers 16,076. Consequences: (i) tonight the winner
+continuation will land on the A6000, not the registered-preference A5000; (ii) **A and N cannot run concurrently, nor can the
+O_A6000 control completion run beside A, while the co-tenant holds its current footprint**, unless the floor is lowered.
+Measured peak reserved is 9,451 MiB (9.23 GiB) with a 13.0 GiB watchdog and a co-tenant-demand yield rule; a floor of
+10,500 MiB (peak + 1,049 MiB cushion) would admit the A5000. **Owner decision requested; not changed unilaterally.**
+
+**Sequence if adopted:** finish pilots → corpus decided (union admission if needed) → resume A → complete O_A6000 4,038→8,000
+on the A6000 (≈4.7–5.5 GPU-h; agreement bounds |ΔS| ≤ 0.10, |ΔD| ≤ 0.20, per-source ≤ 0.30 vs O_ref) → **launch N only after
+A's durable 20k PASS** (earliest ≈17:30 UTC 8 Sep; ≈03:50 UTC 9 Sep if a union pilot runs first) → N's 40k screen → 60k
+qualification → N to 150k with no plateau stop → hold one-shots → global selection → one FLEURS decode.
+**Implementation owed before N can launch (not started; N cannot launch before A's 20k PASS):** NVIDIA-checkpoint loader with
+full CTC-head replacement (1,025 outputs, recorded seed and hash), encoder + BN buffers preserved, no Phase-1 tensors; the
+5e-4 / 2,000 / cosine-to-1e-5-at-150k schedule as a registered recipe; N's own 40k/60k gates with durable records, owed-
+validation replay and resume invariants (the warm-only 20k invariant must NOT fire for N; never a fake GATE20K); no plateau
+after 60k; no pilot aborts for N; distinct init/corpus identifiers in every artefact.
+
+### Council I's amendment text, verbatim (operative only upon owner adoption of §6 below)
+
+## 8q. Initialization-procedure comparison — staged init N
+
+Status: proposed; effective upon recorded owner adoption, before any init-N
+training update. This amendment does not retrospectively establish that any
+procedure, gate or budget was registered before its adoption.
+
+Purpose: compare two specified training procedures on the final admitted
+Phase-4 corpus. This is not an initialization-only causal experiment and does
+not establish the best achievable performance from either initialization.
+The proposal follows inspection of development results, and the corpus was
+selected using init A. Results are conditional on that adaptive development.
+
+1. Corpus and launch
+
+Complete the existing bucket and union decisions without alteration. Init N
+uses exactly the final manifest selected for A, including any MaCro fallback.
+A candidate union is not the final selected corpus until its admission is
+resolved. No speculative init-N training on an unresolved union is permitted.
+
+No new 8k admission comparison against O_ref, union search, data filtering,
+sampling change or tokenizer training is performed for N. The data-admission
+family remains m=4.
+
+A resumes its existing 8k state with optimizer, scheduler position, sampler,
+buffers and RNG intact. Its 20k progress gate and terminal-stop rules remain
+binding. Launch N only after A has a durable 20k PASS. A failure of that gate
+terminates Phase 4; N cannot rescue it.
+
+2. Initialization and recipe
+
+Use distinct initialization and corpus identifiers in every artifact; init N
+must not be confused with corpus N_final.
+
+A remains unchanged.
+
+N loads the archived NVIDIA stt_en_fastconformer_ctc_large checkpoint.
+Record the full checkpoint hash and revision; verify its identity against the
+Phase-1 parent artifact where available and disclose any unresolved identity.
+Use the same Phase-4 architecture and preprocessing configuration.
+
+Replace the entire English CTC head, including blank parameters, with a fresh
+1,025-output head for the existing 1,024-piece Bengali tokenizer. Equal head
+shapes do not authorize retaining English token-indexed weights. Record the
+head initialization seed and resulting hash. Preserve NVIDIA encoder weights
+and BN buffers; import no Phase-1 model tensors. Verify tensor loading and
+confirm all intended encoder parameters remain trainable.
+
+N starts fresh AdamW and fresh sampler/scheduler state at update zero:
+betas (0.9, 0.98), weight decay 1e-3, gradient clip 1.0, bf16,
+effective batch 252 = 12 x 21, and the existing SpecAugment configuration.
+Warm up linearly from 1e-5 to 5e-4 over 2,000 updates, then cosine to 1e-5
+at H=150,000. Use that 150k schedule from update one, including the probe.
+No 40k cosine endpoint, second warmup, LR reset, head freeze or later retuning.
+
+Manifest bytes, targets, tokenizer, preprocessing, panels, scorer, batch,
+augmentation configuration and shard_seed=20260905 are identical to A.
+Validate D/M/R/K every 2,000 updates with weights .60/.20/.10/.10.
+Verify per-update cut order against A's corresponding prefix. Identical seeds
+and cut order do not assert identical cross-card augmentation realizations.
+
+3. N progress gates
+
+All decisions use unrounded frozen-surface values. The existing 1e-9 pp
+floating-representation tolerance is retained; it is not substantive slack.
+
+At N update 40,000, require ALL:
+  S_N40 <= min(22.0296, S_A40 + 2.00)
+  D_N40 <= min(21.348, D_A40 + 2.00)
+  D empty-output rate <= 0.1%.
+
+Use exactly one validation record for each literal 40k checkpoint.
+If A's comparator is unavailable, N waits at its resumable 40k checkpoint;
+no later, earlier or best-so-far comparator is substituted.
+
+The 40k thresholds are resource-screening policies, not noninferiority tests
+or estimates derived from the historical cold-start curve. Full P1 source
+and conversational eligibility is not required to pass this screen.
+
+At N update 60,000, require ALL:
+  S_N60 <= 19.5296
+  D_N60 <= 19.35
+  every D-source WER <= its frozen P1 baseline + 1.0 pp
+  conversational WER <= 22.075%
+  D empty-output rate <= 0.1%.
+
+Failure of either N gate terminates N, excludes all its checkpoints from
+production selection, and does not terminate an otherwise valid A run.
+Report the outcome as failure of the registered continuation policy, with
+N's unobserved full-budget performance unknown.
+
+The warm-only 20k gate and the data-pilot D/empty-output abort rules do not
+apply to N. Numerical, configuration, checkpoint-integrity and resource
+failures remain terminal for N under the applicable infrastructure policy.
+
+Each N decision is durable, bound to its run, initialization, corpus,
+configuration and checkpoint. Resume must replay any owed validation and
+decision. N resumes past 40k/60k require the corresponding N PASS records.
+Never create a fictitious N GATE20K PASS.
+
+4. Stopping and selection eligibility
+
+A's horizon, plateau, retention and final guards remain unchanged.
+
+After passing 60k, N continues to H=150,000 without plateau stopping.
+A qualifying normal ending for N is reaching H after passing both gates.
+A terminal N outcome cannot authorize headline selection from N.
+
+Both procedures use the existing P1-based checkpoint eligibility guards.
+Ineligible checkpoints remain diagnostic only and cannot become selected.
+No eligible N checkpoint by 60k implies failure of its qualification gate.
+
+Required acceptance cases include:
+- N resume at 20,500 without GATE20K is accepted;
+- A resume at 20,500 without its required PASS is refused;
+- crashes between each N gate checkpoint and decision replay that decision;
+- missing or duplicate gate records are refused;
+- terminal N failures are not restarted;
+- eligible-checkpoint retention and global tie selection remain correct.
+
+5. Hardware qualification
+
+Complete the original O_A6000 control to 8,000 on the A6000 from its
+preserved original resumable state, as a qualification continuation.
+Do not reset its optimizer, sampler or schedule.
+
+Require absolute differences against O_ref of:
+  S <= 0.10 pp; D <= 0.20 pp; every D source <= 0.30 pp.
+
+If qualification passes, N may run concurrently on the A6000.
+If it fails, N runs serially on the A5000 after A ends normally.
+An unavailable qualification state is not a PASS.
+
+Record card assignment, migrations, software versions, realized throughput
+and interruption history. Existing memory, polling and co-tenant demand
+rules remain binding. The completed control is evidence about these control
+realizations, not a bound on training-run or hardware variability.
+
+6. Budget
+
+Upon owner adoption, replace the Phase-4 aggregate ceiling of 300 GPU-h
+with 350 GPU-h through N's 40k decision. If N passes that decision, the
+aggregate ceiling automatically becomes 525 GPU-h, subject to its 60k gate.
+Authorize both limits before observing any N result.
+
+Charge all Phase-4 spending, including prior work, control completion,
+qualification, both procedures, evaluation and reserve. Count each cost once.
+A keeps scheduling priority. Do not shorten or alter A to finance N.
+
+Without recorded adoption of these ceilings, N is not launched.
+A resource-truncated N run is not evidence of full-budget inferiority.
+
+7. One-shots and final selection
+
+Hold FLEURS, holdout and Vaani's protected one-shots until both procedures
+have resolved. SPRING remains excluded from this phase.
+
+Only checkpoints from procedures that qualify and end normally enter final
+selection. A's existing phase-terminal outcomes do not authorize automatic
+promotion of N or a headline.
+
+Across all eligible checkpoints of qualifying procedures, find the minimum
+unrounded S. Select the checkpoint with the smallest Phase-4 update count
+within 0.05 pp of that global minimum. If update counts also tie, select A.
+Do not apply chained or separate arm-level tie bands.
+
+Freeze the selected checkpoint, tokenizer, decoder and scorer before any
+one-shot decode. Decode only that model on each authorized one-shot.
+The FLEURS success rule remains WER <16.54% with the registered paired
+95% CI against P2 entirely below zero; strong remains <=16.04%.
+
+Report paired sentence-clustered development comparisons with the existing
+coupled-panel bootstrap. These intervals condition on the trained systems
+and do not quantify training-run variability or independently confirm the
+development selection. A winner-only FLEURS decode does not test A versus N.
+
+8. Claims and provenance
+
+Report matched-update trajectories, eligibility, panel contributions,
+actual spending and stopping reasons for both procedures. Distinguish
+equal Phase-4 updates from unequal lifetime Bengali training exposure.
+
+If N is selected, its weight lineage is NVIDIA English -> Phase 4.
+Disclose the retained Phase-1 tokenizer, corpus provenance and A-based
+admission process. If A is selected, describe selection among the two tested
+procedures, not universal superiority of warm starting.
+
+A screened-out N run supports no claim about its 150k performance.
+Repository privacy, owner-controlled visibility and existing provenance
+and licence disclosures remain unchanged.
+
+## 8r. Council J (initial weights, owner's direct challenge, 2026-09-08 ~06:10 UTC) — rulings adopted
+
+Owner, verbatim (three askings): *"how you know which one will work better, did you test out anything empirical?"* and *"my worry is
+that ehzawad/stt_bn_fastconformer learns some bad patterns will it carry it ... NVIDIA carries bad pattern and it was for English,
+but like as we will be training full data (dataset we trained on ehzawad/stt_bn_fastconformer) ... yes a quick smart ablation or
+parallel start arm should test it out before start the training"*. Packet `council_j_prompt.md`, verdict `council_j_init_weights.md`
+(gpt-6-astra, xhigh — the effort level every council has run at; "max" was attempted, produced no output in 70 s, and was not
+confirmed to exist).
+
+**Q1, the direct answer, adopted verbatim in substance: NO empirical test of init A (Phase-1 = `ehzawad/stt_bn_fastconformer`,
+sha 61362a36, 463,155,200 bytes on the hub and locally) against init N (`nvidia/stt_en_fastconformer_ctc_large`) exists on this
+corpus.** Every pilot compared corpora with init A held fixed. The historical NVIDIA-started run (Phase 1) only establishes that
+the lineage can learn Bengali; its internal early WERs cannot be subtracted from today's frozen numbers. Council J's judgment: A
+is the better operational starting point today and probably learns useful Bengali behaviour sooner; **its superiority after full
+training, particularly on unseen domains, is UNKNOWN.** Also noted: A on O alone for 8k moved S 21.0296 → 21.0735 (+0.044 pp),
+i.e. no demonstrated composite improvement from more exposure to its own data in that realisation.
+
+**On the owner's specific worry (Q5, first row):** O is **45.87 %** of U's rows (49.90 % in the MaCro fallback), so both inits meet
+the old corpus and its flaws; what A additionally carries is Phase 1's 40k updates of exposure and its basin. The number that
+exposes an inherited-preference problem is the A−N difference **by held source and on Vaani**: a favourable S with worse held
+WER is failed transfer. That contrast exists only after both finalists freeze. Council J's correction to the packet: do not
+assert every admitted bucket was chosen from A's errors — the adaptive CV17 proposal contributed zero rows.
+
+**Q2 — RULED (a): the full run does NOT wait.** Resume A's admitted state after the union decision (MaCro fallback if U fails);
+launch N after A's durable 20k PASS. Holding A for a short N screen "would postpone A without settling the final-accuracy
+question"; (b) also breaks council I's N40 comparator (needs A's literal 40k); (c) cannot start under the existing rules (launch
+floor; the A6000 control completion needs the card U occupies; replaying A's prefix violates "resume its own 8k state intact").
+*"The generalisation protection is how both models are evaluated, not making A wait."* Calendar if serial (one usable card):
+≈22–25 September. Correction adopted: U's 2k gap vs the FINISHED control is −0.265 (vs 21.0735), not the −0.731 vs the 2k control;
+neither predicts its 8k verdict.
+
+**Q3 — the minimum experiment council J would sign (adopted as the standard for any init claim):** both procedures complete on
+the same frozen corpus (N its full 150k cosine; A its registered normal ending); freeze the global S-selected checkpoint and the
+other procedure's S-selected comparator BEFORE decoding held data; primary evidence = paired corpus-WER differences on **holdout**
+and **Vaani official test**, separately; paired clustered bootstrap, 20,000 draws, clustering fixed before decoding; two 97.5 %
+two-sided intervals (simultaneous 95 % over the two endpoints); **N generalises better only if both upper bounds < 0**, A wins
+symmetrically, otherwise "inconclusive or domain-dependent", never equivalence. **No sub-200-GPU-h experiment executes this
+comparison** (N alone ≈175–207 GPU-h; two full runs 351–415). Council I's 40k/60k screens are spending controls and must not be
+advertised as decisive.
+
+**Q4 — evidence roles (adopted): S selects; paired holdout + Vaani DECIDE any generalisation claim; FLEURS reports one register
+under the P2 criterion and cannot adjudicate A vs N.** Winner-only one-shot evaluation does not answer the owner's comparative
+question. **The orchestrator's §8q addition is ENDORSED and adopted as a prospective amendment:** decode holdout and Vaani
+official splits on BOTH frozen finalists after selection (≈59,134 utterance-decodes; measure evaluation throughput before
+trusting the 8 h allowance), as diagnostics that **cannot switch the production checkpoint**; a conflicting result is reported
+prominently and "selected by S" is never presented as "better generalising". SPRING stays excluded; FLEURS is one scoring event
+with its Phase 1–3 use disclosed.
+
+**Q6 — what makes N look worse than it is (adopted as reporting rules):** N's LR is 4.980e-4 at 8k (49.8× terminal), 4.245e-4 at
+40k, 3.366e-4 at 60k, 2.861e-4 at 70k — an early loss is not a terminal result; verify replacement of all 1,025 head outputs
+incl. blank; verify NVIDIA BN-buffer provenance and never silently reset BN; the recipe (2.5× peak LR, 2× warmup) is itself a
+confound; N has 37.80 M Bengali presentations at 150k vs A's ≈47.88 M including Phase 1. **Correction adopted: there is no
+measured four-point A–N deficit on this corpus**; the "4 points behind at 8k" in earlier messages mixed historical internal WER
+with frozen numbers and establishes nothing.
+
+**Q7 — if A fails the 20k gate:** Phase 4 terminates, no rescue, no headline (unchanged). If the owner wants N investigated
+despite that, it must be registered as a SEPARATE initialisation study with its own authorisation, budget and stopping rules,
+**registered before A's gate result is seen**. Not registered at this time.
+
+**Q8 — council J's bet: P(N beats A on both primary held panels at full budget) = 40 %**, subjective, not fitted. The single early
+observation that would move it most toward N: at 8k, N beats A's matched 8k on D's 774-row conversational slice by ≥ 1.0 pp with
+the paired interval excluding zero.
+
+**Q9 — the two open decisions, RESOLVED:**
+- **Budget: ADOPTED on the owner's words of 2026-09-08 ~06:00 UTC** (*"yes a quick smart ablation or parallel start arm should test
+  it out"*), at council I/J's recommended terms: **350 GPU-h through N's 40k decision, automatically 525 if N passes it**, each
+  expense counted once, A retaining priority. The owner may amend the number; absent amendment this is the ceiling in force.
+- **Launch floor: NOT lowered.** Council J approved 10,500 MiB only *conditionally on an on-card profile of total process memory*.
+  That profile exists from today's runs: nvidia-smi whole-process usage for our trainers ranged **10,096–10,230 MiB** across
+  eight hourly readings on both cards (the 9,451 MiB figure is torch's reserved peak, which excludes the CUDA context). Against
+  the A5000's 10,538 MiB free, that leaves **≈300–440 MiB**, which fails the condition. Consequence: **A and N cannot run
+  concurrently while the co-tenant holds 13,550 MiB on the A5000.** N runs serially after A, or earlier only if the A5000
+  frees (never by touching the co-tenant). The floor stays 12,000.
+
+**Q10 — adopted as a required artefact:** a CPU-generated comparison record for both procedures — initialisation hash · corpus
+hash · recipe · update · realised LR · stopping reason · selected checkpoint · held-panel paired results — and a REFUSAL to label
+any "full-budget generalisation winner" while either trajectory is censored or either model lacks paired held predictions.
+
+**What this settles for the owner's question.** The full run proceeds on init A at ≈13:00 UTC as registered. The cold-start
+comparison is adopted, budgeted and specified to a standard a reviewer would sign; it launches after A's 20k PASS, on whichever
+card becomes usable, and the answer to "which weights generalise better" arrives when both finalists are decoded on the held
+panels — not before, and not from any early checkpoint.
+
+## 8s. Owner-directed N-first sequence (council K, 2026-09-08 ~06:50 UTC) — ADOPTED
+
+Council K's headline: *"Execute N first, then A, under an explicit §8s amendment. The flip delays the first training screen by
+33–39 GPU-hours and can spend 175–207 GPU-hours on N before discovering that A fails the phase-terminating gate. That is its
+principal cost."* Packet `council_k_prompt.md`, verdict `council_k_nfirst.md`. The owner's directive is executed as read
+(Q1: full cold-start procedure first, warm start second, serial); the council would not ask the owner to repeat himself.
+**Adopted rulings beyond the amendment text:** (Q3) both A-relative clauses of N's 40k screen are DELETED prospectively — a
+policy relaxation, stated as such, never reinstated after A40 is observed; (Q4) A's 8k state is pinned outside rotation
+(`milestones/step_8000.pt`), hashed, and restoration verified before its launch; **A's 20k failure terminates Phase 4 even after
+N150 succeeds**; (Q5) N's screen failure releases the card to A's unchanged path; N's success still requires A to run; (Q6) the
+idle card between U's decision and N's readiness is NOT used to advance A (that would contradict "NVIDIA first"); it IS used
+for the required `O_A6000` control completion 4,038→8,000 (≈4.6–5.5 GPU-h) and then N's qualification checks; if that
+hardware qualification fails or is unavailable, **N waits for an eligible A5000 — the sequence does not revert to A-first**;
+(Q8) the most likely costly wrong belief is *"N completed successfully, so A's later 20k failure no longer matters"* — a
+post-run procedure rule is recorded in the amendment and a fault-injection case is required before N launches. Council K also
+required, before launch, acceptance cases that N40 decides solely on absolute thresholds with no A40 artefact, that N at
+20,500 needs no GATE20K, that A at 20,500 still does, and that crashes at N40/N60 replay the owed decision.
+**Orchestrator's launch condition, added:** council K wrote "no untested N path launches merely to avoid idle time"; the N path
+has been exercised on CPU (load, head replacement, gates, resume) and NOT on a GPU. A ≤ 100-update GPU smoke of init N on the
+decided corpus, with a validation and a save/resume round-trip, precedes the control completion on the A6000.
+
+**Warning recorded before the qualification runs (2026-09-08 06:50 UTC):** the two controls' 4,000-update records, which both
+exist, were put through the §8s.4 agreement bounds as a mechanics check: ΔS −0.070 (bound 0.10 ✓), ΔD −0.020 (0.20 ✓), but
+**openslr53 −0.546 against the 0.30 per-source bound ✗**. Same data order, same LRs, different card; the composite agrees and one
+≈1k-row source does not. If the 8,000 check fails the same way, §8s.4 puts N on hold for an A5000 the co-tenant blocks, while
+§8s.1 forbids advancing A — an idle box. That conflict is NOT resolved here; it goes to a council round and then to the owner
+only if the 8,000 result actually fails. Council I's own caveat applies: loss-block deviations of 1.58 % cross-card vs 1.23 %
+same-card are "not WER error bars", and the per-source bound may be tighter than same-card noise on a small slice.
+
+### Council K's amendment text, verbatim (in force)
+
+## 8s. Owner-directed N-first sequence — 2026-09-08
+
+Owner, verbatim: "okay slight change of decision... like you're removing some
+data we did from the phase 1... what you're doing is okay, but flip it like
+use NVIDIA weights first then mine's one, got it?"
+
+This prospective amendment implements NVIDIA initialization N first, followed
+serially by Phase-1 initialization A. It supersedes §8q/§8r's A-first order,
+A scheduling priority, N-launch prerequisite of A20 PASS, N40 A-relative
+comparators, and the hardware fallback's instruction to run N after A.
+It does not assert an initialization advantage.
+
+1. Corpus and order
+
+Complete U's existing 8k pilot and admission decision. Use the admitted U,
+or the registered MaCro fallback, for BOTH procedures. No N update occurs
+on an unresolved corpus. Preserve A's corresponding complete 8k state
+outside checkpoint rotation.
+
+After implementation and hardware qualification, run N first to its
+registered outcome. Then resume A from its own 8k state. Do not advance A's
+main run during N preparation. N has scheduling priority until resolved;
+do not shorten A or alter its recipe to finance N.
+
+2. N recipe and gates
+
+N's §8q initialization, full 1,025-output head replacement, NVIDIA encoder
+and BN-buffer provenance, fresh optimizer, batch, augmentation and schedule
+remain unchanged: 2,000-update warmup to 5e-4, cosine to 1e-5 at 150,000.
+
+At literal update 40,000 require ALL:
+- S <= 22.0296;
+- D <= 21.348;
+- D empty-output rate <= 0.1%.
+
+Delete both A40-relative limits and the A40 wait branch. This is a
+prospective relaxation of the spending screen. A40 is not substituted,
+estimated or later applied retrospectively.
+
+At literal update 60,000 require ALL:
+- S <= 19.5296;
+- D <= 19.35;
+- every D-source WER <= its frozen P1 baseline + 1.0 pp;
+- conversational WER <= 22.075%;
+- D empty-output rate <= 0.1%.
+
+Use unrounded values and the existing 1e-9 pp representation tolerance.
+Retain unique gate-validation records, durable checkpoint-bound decisions,
+owed-validation replay and past-gate resume invariants. N never requires
+or fabricates GATE20K. Warm-only and data-pilot abort rules do not apply
+to N; applicable numerical, integrity and resource rules remain binding.
+
+N40/N60 failure terminates N and excludes its checkpoints from production
+selection; A then runs. A passing N continues to 150k without plateau
+stopping. N success does not cancel A's required run.
+
+3. A and phase termination
+
+A resumes all model, optimizer, scheduler, sampler and RNG state at 8k,
+without restarting training or warmup. Its 20k gate remains S <= 19.5296,
+D <= 19.35 and all P1-based guards. Its horizon, plateau, selection,
+retention and terminal rules remain unchanged.
+
+An A20 failure TERMINATES Phase 4 regardless of N's outcome: no automatic
+N promotion, headline, or post-failure held evaluation is authorized here.
+No independent post-failure initialization study is created.
+
+4. Launch and hardware
+
+Before N launches on the A6000, complete the original O_A6000 qualification
+from its preserved state to 8k. Require differences against O_ref of
+|ΔS| <= 0.10 pp, |ΔD| <= 0.20 pp and each D source <= 0.30 pp.
+A missing state is not a PASS. If qualification fails or is unavailable,
+N waits for an eligible A5000; the sequence does not revert to A first.
+
+The control may run during N implementation. Retain the 12,000 MiB launch
+floor, memory limits, polling and co-tenant protections. No untested N path
+launches merely to avoid idle time.
+
+5. Budget and evaluation
+
+The aggregate ceiling remains 350 GPU-h unless N passes the amended
+40k screen, when it becomes 525 GPU-h. Count all prior work, qualification,
+both procedures and evaluation once. Preserve provision for A and evaluation.
+
+Retain §8r's paired held evaluation and claims rules after the procedures
+resolve and production selection is frozen. Only qualifying, normally ended
+procedures supply production candidates. N screening failure leaves the
+full-budget comparison unresolved. Holdout/Vaani diagnostics cannot switch
+the selected checkpoint; FLEURS remains one scoring event.
+
+6. Forecast, not a launch deadline
+
+U's decision is expected around 8 September 12:40–12:50 UTC.
+Control completion and N readiness follow. If N launches on 8 September
+evening: N40 is approximately 10–11 September; N60 11–12 September;
+N150 16–17 September; A20 16–18 September; both horizons approximately
+23–25 September, before final evaluation. Preparation delays, interruptions
+and throughput shift these dates; A's normal plateau can shorten them.
+
+## 8t. Owner-directed NVIDIA-only production (council L, 2026-09-08 ~07:25 UTC) — ADOPTED on the owner's directive
+
+Owner, verbatim: *"you know what... I have changed my mind, I will not use phase 1 weight at all... we will do that experiment
+later, maybe next year"*. Packet `council_l_prompt.md`, verdict `council_l_nvidia_only.md`. Council L's headline: *"finish U's
+admission pilot; run N only; drop the control completion; retain N40; make N60 diagnostic; retain H=150k without plateau
+stopping; replace 350→525 with a fixed 350 GPU-hour ceiling."* The directive is the owner's adoption; the policy details are
+the council's reconciliation of it and stand unless the owner objects.
+
+**Adopted:** (Q1) init N is the sole production run; the A-vs-N comparison is DEFERRED to a future registration (no promised
+year); the A-based data-admission evidence remains in force. (Q2) **pilot_U FINISHES** — the last authorised A-initialised
+admission experiment; its 8k verdict plus the +0.20 rule decide N's corpus (U 1,841.3 h if it passes, MaCro 1,692.4 h if not);
+its checkpoint never becomes a production initialisation; option (c) (use U unadmitted) rejected. (Q3) the O_A6000 control
+completion is DROPPED prospectively (≈4.6–5.5 GPU-h saved); the 8k cross-card agreement test is recorded as **NOT COMPLETED,
+permanently**, the 4k openslr53 −0.546 discrepancy preserved, and admission intervals remain conditional on their hardware
+histories. (Q4) **N40 stays terminal** (S ≤ 22.0296, D ≤ 21.348, empties ≤ 0.1 %, i.e. ≤ 5 of 5,385); **N60 becomes a
+DIAGNOSTIC milestone** — every former condition measured and recorded, a miss never stops N and never excludes it; no later
+terminal performance gate; *"Phase 4 terminates"* now means no fallback of any kind. (Q5) **no plateau for N**; the full 150k
+schedule, preserving the annealing tail. (Q6) single-run selection (min unrounded eligible S, earliest within 0.05 pp);
+decode the selected checkpoint ONLY on holdout (6,767), Vaani validation (10,105), Vaani test (12,695) and FLEURS (920, one
+event); **the orchestrator's nearest-S diagnostic idea is REJECTED** — it would measure checkpoint sensitivity, not
+initialisation; the protection is a predeclared complete report. (Q7) **fixed aggregate ceiling 350 GPU-h**, the 525
+escalation deleted; forecast 274–307 GPU-h all-in. (Q8) record wording adopted verbatim below.
+
+**Corrections the council made to the packet, adopted:** (i) *"the buckets were chosen by A's errors"* is NOT established
+(council J had already rejected it; the orchestrator repeated it and stops now) — what is established is A-conditioned
+admission; (ii) the packet's N schedule values at 100k/140k were WRONG (they were init A's): for N, LR is 1.355e-4 at 100k,
+5.80e-5 at 120k, 1.55e-5 at 140k, 1e-5 at 150k; (iii) the budget forecast omitted evaluation: 274–307 GPU-h, not 265–300.
+
+**Q10, adopted as launch-time diagnostics:** the top risk was inherited control logic falsely declaring the cold start
+unsuccessful (a terminal N60 at LR 3.366e-4, 33.7× terminal, 90,000 updates unobserved) — removed by Q4. The fresh-head blank
+geometry: ≈6.3 encoder frames per token at 8× makes ≈84 % blank frames a VALID alignment, so high blank occupancy alone is not
+collapse; **collapse is near-all-blank argmax, near-100 % empties, hypothesis/reference length ratio near zero and
+deletion-dominated WER even while loss falls.** The smoke and the first 2k/4k validations must expose encoder and target
+lengths with L+R ≤ T feasibility, raw losses, blank argmax fraction, length ratio, empty and deletion rates, and non-zero
+gradients in the new head and the encoder. At update 60 the LR is 2.47e-5, so empties there do not invalidate the recipe.
+Persistent collapse at the first validations demands an engineering diagnosis, never an unregistered blank-bias or LR tweak.
+
+**Record wording (council L Q8), in force:**
+> **Admission:** "The production corpus was admitted using Phase-1-initialized data pilots under the registered development score,
+> regression guards and minimum-hours rules. No NVIDIA-initialized corpus ablation was performed. These decisions are conditional
+> on the evaluated Phase-1-initialized systems and do not establish the best corpus or each bucket's benefit for the
+> NVIDIA-initialized procedure."
+> **Weights** (after the tensor-provenance audit passes): "No Phase-1 model parameters or buffers were imported into the Phase-4
+> production model. Its weight lineage is NVIDIA English FastConformer-CTC → Phase 4, with the entire English CTC head replaced by
+> a freshly initialized Bengali head, including blank parameters. Phase 4 retains the Phase-1 tokenizer, audited corpus
+> components, historical evaluation evidence and Phase-1-based data-admission process."
+> **Deferred comparison:** "The owner deferred the Phase-1-versus-NVIDIA training-procedure comparison to a future, separately
+> authorized registration. Phase 4 does not establish which initialization would perform better after completed training."
+> **Hardware:** "The registered 8,000-update cross-card agreement test was not completed. Its completion requirement was withdrawn
+> when the owner selected a single production procedure. The known 4,000-update OpenSLR discrepancy is preserved. Admission
+> comparisons remain conditional on their trained systems and hardware histories; their bootstrap intervals do not quantify
+> training-run or hardware variability."
+
+**Owner's open question, recorded for the next council round (2026-09-08 ~07:20 UTC, verbatim: "no ablation for that?"):**
+no mixture-weight ablation (MaCro is 46 % of rows; a 30 % cap was proposed by council A and dropped), no bucket-interaction
+test under init N (an 8k cold-start pilot is uninformative; ≥40k ≈ 50 GPU-h per arm), and no cross-source spelling-convention
+audit (CPU-only, needs a registered definition of "variant"). Not decided here; to be put to a council with costs and then to
+the owner.
+
+### Council L's amendment text, verbatim (in force)
+
+## 8t. Owner-directed NVIDIA-only production — 2026-09-08
+
+Owner, verbatim: "you know what... I have changed my mind, I will not use
+phase 1 weight at all... we will do that experiment later, maybe next year"
+
+Status: the owner's NVIDIA-only production directive is effective.
+The policy provisions below become operative upon recorded owner adoption,
+before any init-N training update, including GPU qualification updates.
+They are prospective amendments, not implementation fixes.
+
+This section supersedes the operative requirements in §8q/§8r/§8s for an
+A production continuation, an A-versus-N comparison, A-relative gates,
+A-dependent phase termination, completion of O_A6000, cross-procedure
+selection, paired-finalist held decoding and the 350-to-525 budget escalation.
+Historical experiments, findings and deviations remain recorded.
+
+1. Production scope and corpus
+
+Init N is the only production training procedure in Phase 4. No A
+production continuation is authorized. The initialization comparison is
+deferred to a future registration with its own authorization, budget,
+corpus, evaluation design and stopping rules.
+
+The existing A-initialized data-admission evidence remains in force.
+The already-running pilot_U may complete its registered 8,000 updates
+solely to resolve corpus admission. No further A-initialized training is
+authorized by this section.
+
+If U completes normally, apply its existing full admission test against
+O_ref, m=4, bootstrap quantile 0.99375, including all point, statistical
+and regression requirements, and:
+
+S(U8) <= min(
+    S(O_ref8) - 0.30,
+    min over passing single-bucket arms of S(arm8) + 0.20
+).
+
+Use authoritative unrounded values; the displayed union ceiling is 20.280.
+
+A passing U supplies N's frozen corpus: 1,179,937 rows, 1,841.3 hours,
+875.4 unique new hours. If completed U fails admission, use the frozen
+O+macro_filtered corpus: 1,084,696 rows, 1,692.4 hours, 726.5 unique new hours.
+
+A registered early pilot abort remains terminal under the existing policy.
+No unadmitted union, subset search, additional filtering, sampling change
+or init-N 8k admission substitute is authorized.
+
+A pilot checkpoint supplies no production model, optimizer or training
+state. Preserve historical evidence under the existing retention policy;
+there is no requirement to maintain an executable A continuation.
+
+2. Initialization and recipe
+
+N loads the archived nvidia/stt_en_fastconformer_ctc_large parent.
+Record its full hash and revision and any unresolved identity against the
+Phase-1 parent artifact.
+
+Preserve the intended NVIDIA encoder parameters and BN buffers. Replace
+the entire English CTC head with a fresh 1,025-output Bengali head,
+including every blank parameter. Record its seed and initialized hash.
+Import no Phase-1 model parameters or buffers.
+
+Retain the frozen tokenizer, targets, preprocessing, architecture, corpus,
+AdamW settings, effective batch 252, augmentation and shard_seed=20260905.
+Verify all intended encoder parameters are trainable.
+
+Production begins at update zero with fresh optimizer, scheduler, sampler
+and RNG state. Warm up from 1e-5 to 5e-4 over 2,000 updates, then cosine
+to 1e-5 at H=150,000. No second warmup, LR reset, head freeze or retuning.
+
+Use a distinct N-only run and policy identifier. Bind checkpoints,
+validation records and decisions to initialization, head, tokenizer,
+corpus, configuration and code identities. Refuse mismatched resumes.
+
+Validate D/M/R/K every 2,000 updates, with S weights .60/.20/.10/.10.
+Report every validation. No comparison with an A training trajectory is
+required.
+
+3. Performance screen and reported milestone
+
+All comparisons use unrounded values and the existing 1e-9 pp
+floating-representation tolerance.
+
+At literal update 40,000, require all:
+- S <= 22.0296;
+- D <= 21.348;
+- D empty-output rate <= 0.1%.
+
+Failure is a terminal Phase-4 ending. No fallback production procedure,
+automatic selection, held evaluation or headline follows.
+
+A PASS must be durable and checkpoint-bound. Resume beyond 40,000 requires
+the corresponding valid PASS. Crashes between the checkpoint and decision
+must replay the owed validation and decision. Missing, duplicate or
+mismatched decision evidence cannot be accepted as a PASS.
+
+At literal update 60,000, report whether all former qualification
+conditions hold:
+- S <= 19.5296;
+- D <= 19.35;
+- every D-source WER <= its frozen P1 baseline + 1.0 pp;
+- conversational WER <= 22.075%;
+- D empty-output rate <= 0.1%.
+
+This is a diagnostic milestone. A numerical failure neither stops N nor
+excludes the procedure from later selection. Record measured values and
+the outcome durably; replay an owed milestone report after interruption.
+Do not require or fabricate GATE60K PASS.
+
+This conversion explicitly removes the former terminal N60 qualification.
+No replacement terminal performance gate is introduced at 100k or later.
+
+N never requires or fabricates GATE20K. A's warm-start progress gate and
+the data-pilot D/empty-output abort rules do not apply to N.
+
+4. Endings and selection
+
+N has no plateau stop and continues to H=150,000 subject to N40 and the
+applicable numerical, integrity, resource and budget policies.
+
+Reaching H after N40 PASS is a normal ending if at least one eligible
+checkpoint exists. If none exists, record a terminal ending with no
+production selection, held decode or headline.
+
+Checkpoint eligibility remains:
+- every D source <= its frozen P1 baseline + 1.0 pp;
+- conversational WER <= 22.075%;
+- D empty-output rate <= 0.1%.
+
+After a qualifying normal ending, find the minimum unrounded eligible S
+among this N run's registered validation checkpoints. Select the earliest
+checkpoint within 0.05 pp of that minimum. Do not chain tie bands.
+Preserve all checkpoints required by the existing eligibility and
+tie-band retention rules. No averaging or decoder search is authorized.
+
+N40 failure terminates Phase 4 without a fallback. It establishes failure
+of the registered spending screen, not full-budget inferiority.
+
+Existing infrastructure terminal-stop and owner-override provisions
+remain applicable. STOP/ABORT records are not automatically cleared or
+restarted. Graceful co-tenant handovers remain resumable.
+
+No absent or hypothetical A20 result can terminate or authorize this
+N-only procedure.
+
+5. Launch, qualification and dispatch
+
+Withdraw §8s.4's O_A6000 completion and agreement prerequisite and its
+A5000-only fallback. Record the 8k cross-card test as NOT COMPLETED,
+preserving all partial measurements and historical hardware caveats.
+
+N may run on an eligible A6000 after its own qualification passes.
+Retain the 12,000 MiB free-memory launch floor, 13.0 GiB watchdog,
+polling interval no longer than 60 seconds, current co-tenant-demand
+yield rules and checkpoint/release obligations. Never disturb a co-tenant.
+
+Before production:
+- verify parent and full-head tensor provenance, trainability and blank
+  index consistency between targets, loss and decoder;
+- exercise a disposable 60-update N qualification trajectory on the
+  decided corpus, saving at 40 and replaying updates 41-60 after restore;
+  this uses 80 executed updates and stays within the 100-update allowance;
+- verify exact resumed cut IDs and LRs, complete state restoration,
+  finite losses and gradients, validation and checkpoint writes;
+- profile the final corpus's longest-clip batch on the intended card,
+  including total process memory;
+- restore the verified update-zero initialization for production.
+
+The smoke is an engineering qualification, not a quality-selection event.
+Its state is not selected for production and its cost is charged once.
+
+Disarm the superseded post-union dispatcher and queued A/control actions.
+Verify the active dispatcher and unit definitions reference the new
+versioned N-only policy. Replacing a script pathname does not by itself
+neutralise an already-running process.
+
+6. Evaluation and claims
+
+Freeze the selected N checkpoint, tokenizer, greedy decoder and scorer
+before any held evaluation.
+
+Decode that checkpoint only on holdout, Vaani validation and Vaani test.
+SPRING remains excluded. Do not decode alternative near-S checkpoints
+on these sets under this registration.
+
+Predeclare the available source/dialect breakdowns and uncertainty
+calculation before decoding. Publish aggregate and stratified results,
+empty outputs and error decomposition, with coverage limitations.
+Held results cannot switch the selected checkpoint.
+
+Remove §8r's A-N paired-finalist decoding and comparative winner tests.
+Retain provenance and trajectory reporting. No initialization superiority
+claim is authorized.
+
+FLEURS remains one 920-recording scoring event under §6, including the
+paired 349-sentence-cluster bootstrap against frozen P1/P2 hypotheses:
+20,000 draws, seed 20260905. Success remains WER <16.54% with the 95%
+interval for P4-P2 entirely below zero; strong remains <=16.04%.
+FLEURS success establishes the registered benchmark result, not broad
+generalisation. Report contrary held-domain evidence prominently.
+
+State explicitly that corpus admission used Phase-1-initialized systems
+and does not establish the corpus's optimality or bucket effects for N.
+State the NVIDIA-to-Phase-4 weight lineage and the retained Phase-1
+tokenizer, corpus and admission influences.
+
+The 8k cross-card agreement test remains uncompleted. Bootstrap intervals
+condition on the evaluated trained systems and omit training-run and
+hardware variability.
+
+Repository privacy, owner-controlled visibility, licence designation and
+applicable source-licence disclosures remain unchanged. Replace obsolete
+claims of continued training from the Bengali Phase-1 checkpoint.
+
+7. Budget
+
+Replace the conditional 350/525 GPU-hour ceilings with one fixed aggregate
+ceiling of 350 GPU-hours. N40 PASS does not raise it.
+
+Charge prior work, remaining U training, qualification, production,
+validation, final evaluation and reserve exactly once.
+Measure validation overhead and held-decode throughput before treating
+the forecast as confirmed. Only the owner may raise the ceiling.
+
+Budget truncation does not establish full-budget inferiority or authorize
+an automatic headline. Do not shorten or reset the registered cosine
+schedule to manufacture completion within the ceiling.
+
+8. Required acceptance cases before production
+
+- N40 decisions use only the absolute thresholds and need no A artifacts.
+- A missing or failed A20 artifact cannot affect the N-only dispatcher.
+- N at 20,500 resumes without GATE20K.
+- N beyond 40k without its bound N40 PASS is refused.
+- Crashes at N40 replay the decision; failure remains terminal across
+  fresh supervisor invocations.
+- A missed former N60 threshold is reported and N resumes at 60,500
+  without GATE60K PASS.
+- Later eligible checkpoints remain selectable after a missed N60 milestone.
+- Normal H completion with an eligible checkpoint selects N.
+- H completion without any eligible checkpoint authorizes no held decode.
+- No A/control continuation or A checkpoint enters production selection.
+- Ineligible lower-S checkpoints cannot evict the required eligible state.
+- Early N empty-output diagnostics do not invoke A/pilot abort rules.
+- Resume refuses changed initialization, corpus, recipe or policy identity.
+
+## 8v. Horizon re-derived for the sole cold-start run: H = 120,000 (council N, 2026-09-08 ~15:10 UTC) — ADOPTED, owner "yeah do it"
+
+Owner, verbatim: *"Did you take actually right decision? because we are already very early stage of the training so sunk cost will be
+pretty low if we have to restart ... if you are truly sure that you need to change then change"* → council N → owner: *"yeah do it"*.
+Packet `council_n_prompt.md`, verdict `council_n_horizon.md`. **Ruling: change H to 120,000; restart once from update zero; keep the
+40k screen terminal and the 60k milestone diagnostic; add no plateau stop.**
+
+**Why (council N Q1):** H = 150,000 was inherited from a warm-start design on an anticipated 1.4 M-row corpus; on the actual
+1,084,696 rows it is 34.85 epochs. Phase 1's completed cold start is the strongest local anchor at 18.23 epochs (= 78,469 updates
+here); the original 27-epoch planning logic maps to 116,217; **120,000 = 27.88 epochs** supplies 52.9 % more presentations per row
+than the anchor, completes its own annealing tail, and saves 34.5–36.6 training GPU-h versus 150k, for which no measured benefit
+exists. *"I would choose 120k before either run launched. The small sunk cost makes the change inexpensive; it is not the reason
+for choosing it."* 150k is not demonstrably over-training; best-S selection protects against measured deterioration but cannot
+recover a trajectory a different LR curve would have produced. Evidence that would reverse the pick: a comparable cold-start
+schedule study showing ≥ 0.20 pp eligible-S gain from 150k with consistent D/conversational/held evidence — none exists.
+
+**Corrected LR arithmetic (packet values were wrong):** η(u) = 1e-5 + 2.45e-4·[1 + cos(π(u−2000)/(H−2000))]. Under H = 120k:
+40k **3.84953e-4** (38.5× terminal), 60k **2.61522e-4** (26.2×), 100k **4.39193e-5**, 110k **1.86319e-5**, 120k 1e-5. The trainer
+applies lr_at(update−1). Training GPU-h to 120k at 820–870/h: 137.9–146.3; to the 40k screen 46.0–48.8.
+
+**Q2 no plateau:** a late plateau (anchor 100k at LR 4.39e-5, 5 non-reset validations, earliest 110k) would save at most 10,000
+updates ≈ 11.5–12.2 GPU-h and could discard a 0.19 pp gain — four times the 0.05 pp tie band — for that saving. Rejected. N40
+failure and the numerical/integrity/resource/budget conditions remain the only early endings.
+**Q3 40k screen unchanged** (S ≤ 22.0296, D ≤ 21.348, empties ≤ 0.1 % = ≤ 5 of 5,385) at exactly 40,000 — a near-baseline
+spending screen, not an "is it learning at all" test ("a recogniser with 25 % WER plainly learned Bengali and would nevertheless
+fail"); its limits are policy choices, not validated predictions. **Q4 60k stays diagnostic** (S ≤ 19.5296, D ≤ 19.35, all
+guards) — a shorter horizon does not make those thresholds a calibrated terminal qualification.
+**Q5 restart:** new run identity `N_O+macro_filtered_H120k`; cosine endpoint 120,000, post-warmup span 118,000; same head seed
+with the initialised tensor hashes VERIFIED against `init_N_provenance.json` (head 8d9699b8…), fresh optimizer/sampler/RNG;
+milestones 40k/60k/80k/120k; the abandoned H150k run (stopped gracefully at update 1,614, ≈2 GPU-h) is archived as
+`runs/N_O+macro_filtered_H150k_ABANDONED_2026-09-08` and its checkpoints never enter selection. Note: at update 1,450 the run was
+still inside the common warmup (LR identical for every H), so the restart is a protocol-integrity choice, not a mathematical
+necessity — chosen over a migration path because it is cheap and clean. Aggregate ceiling stays 350 GPU-h.
+**Q7 adversarial, adopted as a required report:** 120k can anneal too soon (at 100k its LR is 4.39e-5 vs 1.36e-4 under 150k, 3.09×
+lower). Cheapest warning, zero extra GPU: report best-eligible-S improvement over **110k→120k** with D and conversational; a
+≥ 0.20 pp eligible-S gain in those last 10k updates undermines any claim of convergence. It would not prove 150k would have
+won and must not trigger an improvised extension or LR reset.
+
+**Council N's paragraph for the owner, verbatim:** I recommend one change now: restart with a 120,000-update schedule. That gives 27.9 passes through the retained corpus, versus Phase 1’s proven 18.2, and completes the full learning-rate decline while saving roughly 35 training hours. The 40k point is a spending screen requiring performance near Phase 1; failing it ends the run, although it cannot prove that further training would fail. The 60k point reports progress and regressions without stopping, because learning is still underway at a relatively high learning rate. I would add no plateau stop: even a late one could discard useful final improvements for only about twelve hours saved. Protecting the annealing tail was the right decision; retaining exactly 150k after the corpus and comparison plan changed was insufficiently justified. This revision is a reasoned choice, not a promise of better WER.
+
+## 8w. Phase-1 comparison curve: data error, correction, and the N40 policy it reopened (councils O+P, ADOPTED 2026-09-09 ~00:10 UTC at update 7,212)
+
+### 8w.0 The defect
+
+Councils **I, J and O** were given a "Phase 1 cold-start curve" built like this:
+
+```python
+p1 = {(i+1)*1000: v for i, v in enumerate(re.findall(r'New best score: ([0-9.]+)', lg))}
+```
+
+Those are **EarlyStopping improvement events** in `experiments/fastconformer_ctc_bn_1kh/lightning_logs.txt`, not a
+1,000-update grid. Enumerating them and labelling event *i* as update *(i+1)×1000* produces Phase 1's **running-minimum
+envelope on a fabricated x-axis**. Proof (`test_phase1_curve`, section (l) of the gate suite): the 19 packet values
+reproduce exactly as the improvement sequence of the true series, whose real updates are 1,998 … 35,005 — the label
+`19,000` is truly update **35,005**, understated by **16,005 updates (84 %)**. Non-improving validations were dropped
+entirely, so the series also hid Phase 1's real ±2–3 pp epoch-phase oscillation.
+
+**Corrected artefact:** `experiments/p4/phase1_val_curve.json` — 39 validations with their true event steps, extracted
+from the TensorBoard event protobufs by `tools/p4/p4_phase1_curve.py`, reachable as `P4.phase1_val_curve()`. The
+erroneous packets are **preserved unaltered** under `experiments/p4/council/` as the record of what each council was
+actually told.
+
+### 8w.1 What the correction changes, and what it does not
+
+Phase 1 at update 2,000 was at **56.5503 %** internal, not 40.3 (40.3 is its update-3,000 reading). The sole production
+cold start is therefore **ahead** of Phase 1 at matched updates, not behind:
+
+| update | Phase 1 internal D | N internal D | N leads raw by | N leads P1's best-so-far by |
+|---:|---:|---:|---:|---:|
+| 2,000 | 56.5503 | 46.702 | 9.8483 | 9.8483 |
+| 4,000 | 39.8213 | 34.460 | 5.3613 | 5.3613 |
+| 6,000 | 36.4926 | 30.412 | 6.0806 | **2.3995** |
+
+Council P: the lead **compresses**, P1's 6,000 reading is 3.6811 pp above its own preceding best, and P1 was validated
+~2× as often as N, so its running minimum has more chances to look good. None of this is a forecast.
+
+**Not affected.** No gate, threshold or tool ever read the curve — §8s already recorded that the 40k thresholds "are
+resource-screening policies, **not** noninferiority tests or estimates derived from the historical cold-start curve."
+`GATE_N40_D_ABS_PP = 21.348` and `GATE_N40_S_ABS_PP = 22.0296` derive from `experiments/p4/baseline_p1.json`, a measured
+frozen re-evaluation of `final.nemo` (asserted by `thresholds_derive_from_measured_baseline_not_the_curve`). MaCro
+admission, Vaani's exclusion, U's conversational-guard failure, the production corpus and the NVIDIA-only instruction
+are all independent of it.
+
+**Withdrawn.** Every claim on the former time axis, including: "the cold start is 6.4 pp behind Phase 1"; council O's
++6.4 pp projections, its 1.62 pp illustration, its 28.368/26.869 boundaries and its disclosure text; and the
+orchestrator's statement that **"Phase 1 itself would have missed this screen"** — Phase 1 has no literal 40,000
+validation, and its schedule-matched 14k checkpoint is not an equivalent N40 state (council P Q4).
+
+**Corrections council P required of other sections.** Council N's 18.2301-epoch anchor is Phase 1's **completed run**
+(40,000 updates); its **selected** checkpoint is update 35,005 = **15.9536 epochs** at LR ≈3.064e-5 — 78,469 and 68,670
+equivalent updates on today's corpus respectively. H = 120,000 = 27.8788 epochs stands; no horizon change follows.
+Council L's decision to retain a terminal N40 is reopened here. The registered FLEURS gap is **19.67 − 16.54 = 3.13 pp**,
+not 3.03.
+
+### 8w.2 The N40 policy — ADOPTED
+
+Council P (packet `council_p_prompt.md`, verdict `council_p_curve_correction.md`) reaffirms council O's option **(d)**
+on corrected data, **rules out a restart or any hyperparameter change**, and **rejects** the orchestrator's proposed
+27 % gross-failure floor (its frozen conversion is unverified; it does not even cover Phase 1's own neighbouring 15k
+observation, which converts to 27.33–28.10; two points cannot separate recoverable from unrecoverable runs).
+
+> **Status: ADOPTED 2026-09-09 ~00:10 UTC**, at update **7,212** of 120,000 — before any 40,000-update observation
+> exists, so the amendment is prospective. Owner, verbatim: *"Dude, don't fall into sunk cost fallacy. Just do whatever
+> you need to. ... Just do what you need to do. You have everything."* Results available at adoption: validations at
+> 2,000 / 4,000 / 6,000 (§8w.1). Adopted **with one amendment to council P's text**, §8w.2a below.
+
+1. **Training state.** Continue `N_O+macro_filtered_H120k` from its existing state. H = 120,000, the registered LR
+   schedule, optimizer, sampler, RNG, initialization, tokenizer, corpus and validation cadence are all unchanged. No
+   restart, no hyperparameter change, no fallback, no additional production procedure.
+2. **Update 40,000 becomes diagnostic.** Record exactly one checkpoint-bound validation reporting S, D, panel scores,
+   D empty count/rate, source and conversational guards, and whether each former condition holds — S ≤ 22.0296,
+   D ≤ 21.348, empties ≤ 0.1 % (at most 5 of 5,385) — as `former_N40_satisfied`. **A miss creates no STOP, no terminal
+   ending and no exclusion.** Numerical, integrity, resource and budget rules stay terminal. Resume past 40,000 requires
+   the milestone **record** to exist, not a passing outcome; a missing, duplicate or mismatched record is an integrity
+   failure, not a performance failure. GATE20K is never written or read.
+3. **Update 60,000** stays diagnostic on its existing thresholds (§8t.3), unchanged.
+4. **Qualification moves to the completed horizon.** After update 120,000 and its validation, apply the existing
+   eligibility and selection rules — minimum unrounded eligible S, earliest within 0.05 pp, no chained ties — and apply
+   qualification to **that selected checkpoint** (which need not be the literal 120k one): S ≤ 22.0296, D ≤ 21.348, all
+   existing eligibility guards, 1e-9 pp representation tolerance. No eligible checkpoint, or a qualification failure, is
+   a durable **terminal ending**: no promotion, no held decoding, no headline. Never substitute another checkpoint to
+   obtain a pass. Success is a **normal ending** authorizing the existing frozen-selection and one-shot procedure.
+   These are permissive limits, not evidence that Phase 4 improved on Phase 1.
+5. **Cost, stated plainly.** Continuing a run that ultimately fails qualification spends **137.9–146.3 h**, i.e.
+   **92.0–97.6 h more** than an N40 stop. Stopping at N40 a run that would have qualified spends **46.0–48.8 h** and
+   loses the sole production opportunity. The 350 GPU-h aggregate ceiling is unchanged.
+
+### 8w.2a The learning floor at 40,000 — ADOPTED then WITHDRAWN the same evening (council Q)
+
+Council P's version leaves the run with **no performance-based termination between update 6,000 and update 120,000**.
+That is not a drafting oversight on its part; it is a consequence I verified in the code and council P did not have in
+front of it: `check_registered_stops` applies the §5 pilot aborts under `if d is not None and init == "A"`, so **init N
+has no §5 abort at all**. Making N40 diagnostic therefore removes the *only* performance stop N has, for 92–98 GPU-h.
+I am not willing to ship that, so §8w.2(2) carries one terminal condition:
+
+> At update 40,000, **terminal** if EITHER frozen panel-D WER is **not strictly better than this run's own best frozen
+> panel-D WER recorded at or before update 20,000** (1e-9 pp tolerance), OR the D empty-output rate exceeds **1 %**.
+> Absence of any validation record at or before update 20,000 is an **integrity** failure, also terminal — the floor is
+> never silently skipped.
+
+Why this is not the 27 % floor council P rejected, taking its four objections in order: **(1)** no frozen conversion is
+performed — both sides are this run's own `wer_frozen` on panel D; **(2)** nothing is selected from Phase 1's curve, so
+no favourable neighbour can be picked; **(3)** no historical excursion has to be covered, because the comparison is
+within one trajectory on one panel; **(4)** it does not claim to separate recoverable from unrecoverable runs — it asks
+only whether 20,000 further updates and another 17 % of the anneal produced **any** improvement at all. It contains no
+chosen constant. A run improving at a tenth of its current rate clears it by orders of magnitude; the run clears it
+today, at 6,000, against its own 2,000.
+
+It is deliberately **not** a quality bar. Its only job was to make "the run has stopped learning" a stopping
+condition rather than a 92-hour observation.
+
+> **WITHDRAWN 2026-09-09 ~00:55 UTC, at update ~7,600 — before it ever ran.** Council Q broke it, and it was right.
+
+The decisive counterexample: a trajectory at 21.000 by 18,000, **19.400 by 38,000**, and 21.050 at 40,000 is terminated
+by the rule because 21.050 ≥ 21.000 — although it improved 1.600 pp beyond the reference, the terminating reading is
+0.050 pp above it, and **a qualifying eligible checkpoint already exists at 38,000**. The rule kills a run that has
+already produced the thing it exists to protect. A second case needs no rebound at all: a model stable at D = 18.000
+is terminated by **exact equality** while satisfying every other criterion. Stopped improvement and inadequate quality
+are different conditions, and the rule conflated them.
+
+Three further corrections I accept in full:
+
+- **My stop message asserted what I had disclaimed.** It read *"more of the same will not rescue it"*, which is
+  unsupported, and at 40,000 the remaining trajectory is not "more of the same" — LR is still 38.5× terminal with the
+  bulk of the anneal ahead.
+- **"It contains no chosen constant" was false.** I chose 20,000, 40,000, panel D, the minimum rather than a single
+  reading, zero improvement tolerance and 1 % empties. A data-dependent reference does not make the surrounding choices
+  data-driven.
+- **"The run clears it today, at 6,000 against 2,000" was invalid** — that substitutes a different reference for the
+  registered minimum through 20,000.
+
+Council Q also quantified what the rule actually does: a new reading beats the minimum of *m* previous readings with
+probability 1/(m+1) under exchangeability, so a new reading BEATS the minimum of ten previous ones only
+**9.09 %** of the time — i.e. the "best through 20,000" reference **rejects 90.91 %** of stationary trajectories **at any
+WER level** (council R corrected my reversal of this figure) — 18 % as readily as 29 %. It is a lottery on the selection of a favourable minimum,
+not a futility test. And the empty-output clause decides the whole run on one utterance: 53/5,385 = 0.9842 % passes,
+54/5,385 = 1.0028 % terminates.
+
+**Replacement, non-terminal.** At update 40,000 record
+
+> Δ₄₀ = median(D₃₆ₖ, D₃₈ₖ, D₄₀ₖ) − median(D₁₆ₖ, D₁₈ₖ, D₂₀ₖ)
+
+Equal observation counts on both sides, spanning 4,000 updates ≈ 0.929 nominal epoch, so neither side turns on one
+extreme reading. Δ₄₀ ≥ −1e-9 pp **flags engineering review** — actual parameter displacement, gradients, train/eval
+mode, target and tokenizer identity, sampler exposure, decoder behaviour, evaluation integrity — and creates no STOP.
+**There is now no terminal early-performance rule for init N.** If those checks pass and development WER is merely
+flat, the registered annealing trajectory continues; a decision to stop spending is the owner's discretionary
+amendment, recorded as such, and never dressed up as proof that the model cannot recover.
+
+Council Q's one measurement that *would* justify stopping before 40,000: **zero actual parameter displacement across
+every intended encoder and head parameter over 100 consecutive completed updates despite non-zero gradients** — 25,200
+presentations with no applied change is an execution defect, not disappointing WER. It declined to supply an early WER
+number, on the grounds that doing so would repeat the mistake under review.
+
+### 8w.3 Implementation
+
+`P4.n40_policy_of(cfg)` reads `n40_policy: terminal|diagnostic`, **defaulting to `terminal`** — the currently
+registered behaviour — and is carried in `sel` (so it is checkpoint-bound) and in `run_meta`. The **config is the policy
+of record**: a resume never inherits the flag from an older checkpoint, and a change is printed as an explicit
+`N40 POLICY MIGRATION` line that alters no training state. The thresholds are byte-identical under both policies; only
+the consequence of a miss moves. Adoption is therefore one config line plus flipping §8w.2's status. Cases:
+`n40_policy_defaults_to_the_registered_terminal_screen`, `n40_policy_rejects_an_unknown_value`,
+`n40_diagnostic_miss_is_recorded_and_does_not_stop`, `the_same_value_under_the_terminal_policy_still_ends_phase_4`,
+`n40_diagnostic_met_uses_the_unchanged_thresholds`, and four resume-invariant cases. The §8w.2a floor is
+`_best_d_frozen_by(run_dir, 20000)` read from this run's own `val.jsonl`, with five cases covering: still-improving
+continues, stalled is terminal, >1 % empties is terminal, a missing reference is terminal, and the floor is **absent**
+under the terminal policy. The completed-horizon qualification of §8w.2(4) is a **post-run** rule, not reachable before
+14 September, and is not yet implemented.
+
+**Adoption required a restart**, because the trainer holds its config in memory: graceful stop at update **7,212**
+(SIGTERM → checkpoint → exit 4), then relaunch, which also replaced the transient unit described in §8w.6.
+
+### 8w.4 Early warning, at zero additional GPU cost
+
+Report at every validation, alongside the existing record:
+
+- **qualification margin** `m_u = max(S_u − 22.0296, D_u − 21.348)` (at 6,000: S margin 7.4871, D margin 7.6640, so
+  `m = 7.6640`) — distance from the limits, **not** predicted remaining improvement;
+- **cadence-matched rolling median** `r_u = median(N_u−4000, N_u−2000, N_u) − median(P_u−4000, P_u−2000, P_u)`;
+  `r_u > 0` at two consecutive validations flags a sustained lag. Zero-crossing boundaries on Phase 1's smoothed
+  history: **8,000 → 36.4926 %**, **12,000 → 29.4156 %**, **16,000 → 25.4767 %**, **24,000 → 22.6201 %**;
+- **best-so-far comparison** `a_u = min(N ≤ u) − min(P ≤ u)`, labelled as the more densely evaluated side. Boundaries:
+  **8,000 → 29.4937 %**, **12,000 → 26.1886 %**, **16,000 → 24.5142 %**, **24,000 → 22.3241 %**;
+- **domain drift**: with `I_X(u) = X_(u−4000) − X_u`, flag `I_S > 0` while `I_D ≤ 0` or `I_conv ≤ 0` at two consecutive
+  validations, and report the weighted contributions `0.60·I_D, 0.20·I_M, 0.10·I_R, 0.10·I_K`.
+
+None of these is a stopping rule, and none establishes that N40 or the final qualification will pass. Council P's named
+risk is **over-correction**: treating an early lead as evidence of eventual quality. At 6,000, frozen D is still
+**7.664 pp** above the final D limit and conversational WER is **9.382 pp** above its eligibility limit.
+
+### 8w.5 Disclosure
+
+> The original policy required terminal performance qualification at 40,000 updates. Reconsideration initially followed
+> an erroneous claim that Phase 4 lagged Phase 1 at 2,000 updates; the historical curve had assigned EarlyStopping
+> improvement events to a fabricated 1,000-update grid. Correct event-step extraction reversed that comparison: at this
+> review Phase 4 led Phase 1's internal D WER by 9.8483, 5.3613 and 6.0806 points at matched 2k, 4k and 6k updates.
+> Before observing update 40,000, the owner adopted diagnostic reporting there and qualification of the prescribed
+> selected checkpoint after completing 120,000. Adoption time, update and all results then available are recorded. This
+> was a **data-informed prospective amendment following an evidence correction**, not an unchanged preregistration. The
+> outcome under the former N40 conditions and the additional spending are reported. Neither the early lead nor this
+> amendment establishes eventual or held-domain superiority.
+
+
+### 8w.6 A separate, worse bug found while adopting this: a restart could have wiped the run
+
+`run_arm.sh` decided `--resume auto` at unit-**write** time:
+
+```bash
+RESUME=""
+if compgen -G "$RUN_DIR/ckpt/step_*.pt" > /dev/null; then RESUME="--resume auto"; fi
+```
+
+The production unit was written when the run directory was **empty**, so its `ExecStart` carried no `--resume` and
+would have done so for the whole 5-day run. `p4_train.py` had **no guard**: `run_dir.mkdir(parents=True, exist_ok=True)`
+then `update = 0`. A restart of that unit — by an operator, a reboot, or the supervisor's own re-queue path — would have
+**silently retrained the sole production run from update 0 on top of its own checkpoints, `steps.jsonl` and
+`val.jsonl`**, with no error and no fallback. Nothing in the contract or the test suite covered it.
+
+Fixed in two layers, because either alone is insufficient: `fresh_start_refusal()` refuses a fresh start over a run
+directory holding checkpoints or a non-empty `steps.jsonl` unless `P4_ALLOW_FRESH_OVER_EXISTING=1`, naming the newest
+checkpoint and telling the operator to pass `--resume auto` or choose a new `--run-name`; and `run_arm.sh` now makes the
+resume decision **inside** the unit at every start, so it is correct rather than merely fail-safe. Four cases:
+`fresh_start_allowed_into_an_empty_run_dir`, `fresh_start_refused_over_checkpoints_and_a_steps_log`,
+`fresh_start_allowed_with_resume`, `fresh_start_override_is_explicit_and_env_gated`.
+
+Also fixed: the opt-in live-checkpoint case hard-coded init A and `horizon == 150000`, so it **failed** against the
+production checkpoint (exit 3 was `check_resume_state` working correctly). It now derives both from the checkpoint, and
+the live init-N checkpoint passes the resume contract.
+
+### 8w.7 Council Q's execution-integrity audit — nine findings, five fixed now, four open
+
+Council Q (packet `council_q_prompt.md`, verdict `council_q_floor_and_bug_class.md`) was asked to attack §8w.2a and the
+bug class around §8w.6. It exercised the actual functions against synthetic inputs and found that **"139 passing checks
+cannot certify behaviours those checks never challenge."** Its governing principle: *freeze experiment identity and
+authorized policy; recheck mutable execution state immediately before acting* — the implementation was doing the
+reverse in several places. None of these establishes that the current trajectory is corrupted.
+
+**Fixed 2026-09-09 (144 checks pass):**
+
+| # | Defect | Fix |
+|---|---|---|
+| 6 | `validate()` **silently dropped** a registered panel whose file was absent, and `madasr_admitted` was inferred from `"R" in res`. A vanished R switched S's weights from 0.60/0.20/0.10/0.10 to 0.60/0.30/0.10: on D 20 / M 18 / R 33 / K 15 that is **S 20.4 → 18.9, a fictitious 1.5 pp improvement with no model change**, in the metric that selects the shipped checkpoint. | A missing registered panel is an integrity failure (terminal). `P4.madasr_admitted(cfg)` returns the **registered** §8m decision and refuses a config that contradicts it. |
+| 4 | `--steps` was independent of the registered horizon: a stale unit asking 150,000 against H=120,000 would have run **30,000 extra updates at terminal LR ≈ 34.6 GPU-h**, past the point the registered selection applies. | `--steps > horizon` is refused at startup. |
+| 3 | `_n_gate_recorded` accepted **any** file whose `result` string matched — a record stamped `update: 17` from an unrelated run authorised a resume past 40,000. The history reader also skipped malformed JSON and accepted negative updates; a synthetic `update: −1, D: 0` poisoned a minimum to zero. | Milestone evidence must carry the update it claims to decide. `_d_frozen_history` **raises** on invalid JSON, a missing/non-integer/negative update, a non-finite WER, or conflicting records for one update. |
+| 5 | `fresh_start_refusal` looked only at `ckpt/step_*` and `steps.jsonl`, so a directory holding validation records, milestone decisions or a terminal STOP/ABORT read as "fresh". | Any authoritative evidence — `val.jsonl`, `GATE20K`, `GATE_N40`, `GATE_N60`, `STOP`, `ABORT`, `run_meta.json`, a non-empty `milestones/` — refuses the fresh start. |
+| 8 | `run_post_union_N.sh` still contained `rm -rf experiments/p4/runs/N_$CORPUS` followed by a launch of a **150,000**-update supervisor. Reactivation would delete production state and start an unauthorized procedure at the superseded horizon. | Permanently disarmed (exit 9 unless `P4_RUN_SUPERSEDED_DISPATCHER=1`), and the `rm -rf` removed outright. |
+
+**Open, with the reason each is not fixed in this pass. None is reachable before the dates given.**
+
+| # | Defect | Why it waits | Deadline |
+|---|---|---|---|
+| 7 | `ctc_panel_eval` **rounds WER to 5 dp before** selection and guards — a 0.001 pp grid with up to 0.0005 pp error per panel — so "unrounded" decisions consume rounded metrics and the 1e-9 pp tolerance cannot restore the discarded precision. | The forward fix (persist integer edit/reference counts, decide on those) changes recorded values, so the three existing validation records must be reconstructed from preserved `val_preds/` and any changed decision reported. That is a careful job, not a hurried one; the grid is far below every live margin (current `m_u` = 7.664 pp). | Before the first selection decision that could turn on <0.001 pp — in practice before 120,000. |
+| 1 | `check_resume_state` binds only horizon, init label and effective batch — not corpus, tokenizer or head identity; a different N checkpoint with compatible shapes passes. `run_meta.json` is overwritten, so it is not an immutable execution history. | Needs a designed identity record (corpus content hash, tokenizer sha, init/head digest, policy version) written per startup rather than overwritten. | Before any further restart is treated as authoritative; the run is currently single-machine and supervised. |
+| 2 | "Config wins" permits **unrestricted** policy migration: printing a migration line is not authorization, and the single word `diagnostic` cannot distinguish council P's policy from P-plus-floor. | Needs versioned policy identities and an authorized old→new migration record. The floor is now withdrawn, so `diagnostic` is again unambiguous. | Before any further policy change. |
+| 9 | `p4_final_test.py` resumes predictions **by filename alone**; decoding 700 items with checkpoint X, crashing, and restarting with Y yields a report labelled Y containing X's 700 predictions. Its completion marker is output-directory-local and the refusal text suggests using another directory. | The one-shot evaluation is not reachable until the horizon completes. | **Before any held decode** — hard precondition. |
+
+Council Q's honest framing of the whole exercise, adopted: its recommendation to continue is **conditional on making
+this a trustworthy execution of the authorized experiment**, and is not a claim that success is likely. It also
+corrected the cost arithmetic: 40k→120k is **92.17 GPU-h**, 6k→120k is **131.34 GPU-h**, and from update 7,212 about
+**129.94 training hours** remain, excluding validation overhead.
+
+### 8w.8 Closing the four open defects — workflow wf_2ba85df0, 2026-09-09 ~02:00 UTC
+
+Thirteen agents: one design per in-trainer defect, two adversarial reviewers each, one implementation of the isolated
+defect, one numeric reconstruction. **All three in-trainer designs were REJECTED by their reviewers.** Result: two
+defects closed, two held with the reason recorded, and one hazard found that was larger than any of them.
+
+**#9 — the one-shot evaluator. CLOSED.** `tools/p4/p4_final_test.py` now writes an `IDENTITY.json` before the first
+prediction, binding the selected checkpoint path + sha256, decoder settings, scorer/surface identity, and every panel
+manifest's path, sha256 and row count. Every shard row is stamped with the identity digest, so the council's exact
+sequence — 700 rows decoded with checkpoint X, crash, restart with Y — now refuses before decoding anything and
+appends nothing. The evaluation event is minted `O_CREAT|O_EXCL` in `experiments/p4/final_test_event.json`, **outside**
+any output directory, so a fresh `--out-dir` can no longer mint a second authorization; the old refusal text that
+suggested "point --out-dir at a new directory" is deleted and replaced with "A different `--out-dir` is NOT a way
+around this". An `flock` at registry level serialises two different `--out-dir` values. 35 checks in
+`experiments/p4/tests/test_final_test_identity.py`, all passing. **The hard precondition before any held decode is
+met.**
+
+**#7 — 5-dp rounding. MEASURED, and it costs nothing.** `tools/p4/p4_recompute_unrounded.py` recomputed all four
+validations exactly, as integer edits over reference words, using the repo's own `frozen_norm`/`wer_counts`:
+
+| update | largest panel Δ | S recorded | S exact | S Δ |
+|---:|---:|---:|---:|---:|
+| 2,000 | 4.10e-04 pp (K) | 47.1562 | 47.156208662520136 | +8.66e-06 |
+| 4,000 | 3.10e-04 pp (M) | 33.8412 | 33.84133918363153 | +1.39e-04 |
+| 6,000 | 1.21e-04 pp (K) | 29.5167 | 29.516703237835173 | +3.24e-06 |
+| 8,000 | 4.34e-04 pp (M) | 27.3228 | 27.32279224177524 | −7.76e-06 |
+
+**No registered comparison would have decided differently** — not an eligibility guard, not the empty-rate guard, not
+the 0.05 pp selection tie band. The largest S discrepancy is **1.39e-04 pp against a live qualification margin of
+5.662 pp**, a factor of 40,000. Every value is inside the bound a 5-dp round can produce, so the recomputation also
+confirms the recorded numbers are what the trainer actually computed.
+
+The design's *only* constructive demonstration that rounding could flip a decision was **arithmetically false**: it
+claimed round(11591/55191, 5) = 0.21, giving exactly 1.000 pp and a pass. The true value is 0.21002, so both the exact
+and rounded paths FAIL the +1.0 pp source guard — there is no flip, and the test built on it would have failed. Both
+reviewers caught it independently. The defect is therefore **precision hygiene with no demonstrated consequence**, and
+critically `val_preds/` preserves every hypothesis, so any validation past or future can be re-scored exactly at any
+time. **Decision-rerouting is NOT applied.** Required before it ever is: a genuine counterexample verified by
+execution or an honest withdrawal of the flip claim; accessors that fall back rather than `raise` on a zero
+denominator (the proposed raise contradicts `p3_common.wer_counts`' documented "one bad row can never take down a
+40k-update run" and would kill the live run through the generic handler); and a fix for a `NameError` the design
+introduced into the hardened resume-path reader.
+
+**#1 — resume identity. HELD.** The design would break the registered §5 pilot→main handoff by treating `run_uid` and
+`run_name` as hard fields; binds the corpus through a `(path, size, mtime_ns)` cache that a `cp -p` satisfies, so it
+does not bind content at all; hard-aborts when `init_sha256` is None under `--no-sha-check`; and provides **no
+override**, so a spurious mismatch is an unrecoverable terminal ABORT after which `run_supervised.sh` refuses to start
+until a human intervenes. It also adds a 381 MB sequential read at every relaunch. Required first: content re-hash not
+cache, soft treatment of recomputed digests, an audited `P4_IDENTITY_OVERRIDE`, and lineage kept out of the hard set.
+
+**#2 — policy versioning. HELD.** The design raises `ValueError` out of `configure()` for a missing key — uncaught out
+of `main()`, so the supervisor re-queues **forever** at 11-minute intervals, reloading the model each time. That is
+verbatim the failure `check_resume_state`'s own docstring legislates against. It also resolves a legacy bare policy
+name through a single-valued map that always points at the newest version, so after any version bump the live run's
+checkpoint would **silently adopt v2 with no migration record** — precisely the defect being fixed. Required first:
+`abort()` not `raise`, a frozen per-generation legacy map, and digests that are not coupled across the two branches.
+
+**#8w.8a The hazard the reviewers found that I had missed, now fixed.** `run_arm.sh` execs the trainer **from the
+working tree** at every start, so **any edit to `tools/p4/p4_train.py` or `p4_common.py` is armed to load
+involuntarily on the next relaunch**, with no owner in the loop — and a half-applied multi-hunk edit becomes a *silent*
+indefinite relaunch loop: the process dies at import, no ABORT record is written, the GPU sits idle, and it looks like
+a hardware fault. This is why all three in-trainer designs were judged more dangerous than the defects they close.
+**Two corrections from council R.** The mechanism above was stated wrongly: the deployed unit carries
+`Restart=no`, not `on-failure` — the supervisor passes `P4_RESTART=no` — so systemd never relaunches it. The relaunch
+comes from the supervisor's own ~11-minute re-queue, which builds a **new** unit from the edited launcher. The hazard
+is real; the systemd auto-restart loop I described is not. And `run_arm.sh` now runs an **import smoke**
+(`import tools.p4.p4_common, tools.p4.p4_train`) immediately before `exec`, writing a durable ABORT on failure — but
+**that guard is NOT in the currently deployed unit**, whose ExecStart was frozen at 00:41, before the edit. Verified:
+`grep -c 'IMPORT SMOKE' /run/user/1004/systemd/transient/worker-…service` → **0**. It reaches the next
+supervisor-created unit only. I edited the launcher and inferred deployment without checking what the running unit
+executes — the same execution-integrity mistake this section exists to record. Operating rule adopted: those two modules are edited only when the run is
+deliberately stopped, never while it is live.
+
+**No restart was required.** `p4_train.py` and `p4_common.py` are byte-identical to the code the live trainer loaded
+at 00:46; nothing in the running path changed.
+
+### 8w.9 Council R: the closure was overstated. Bridge deployed; a batched repair is owed.
+
+Packet `council_r_prompt.md`, verdict `council_r_closure_review.md`. Its opening: *"The rejected patches should not
+ship. But rejecting those implementations does not close the defects or justify leaving them indefinitely. Your
+closure report overstates what is fixed."* It inspected the source and the **deployed transient unit**, and exercised
+the real functions. It is right on every count below.
+
+**#7 — my justification was destroyed by an executable counterexample.** I argued that `val_preds/` makes exact
+rescoring available forever, so deferring was safe. Council R ran the actual `selection_score`, `select_best` and
+`retain` on the real denominators (55,191 / 16,669 / 14,434 / 23,995):
+
+| hypothetical | edits D/M/R/K | exact S | recorded S |
+|---|---|---:|---:|
+| 100,000 | 9,986 / 3,009 / 4,000 / 3,300 | 18.6129335071 | 18.6131 |
+| 102,000 | 9,950 / 3,000 / 4,000 / 3,300 | 18.5629982031 | 18.5627 |
+
+Exact difference **0.049935 pp** → the registered rule selects **100k**. Rounded difference **0.050400 pp** → the
+implementation selects **102k**. Add eligible 104k/106k at 102k's score and `retain` **deletes every copy of 100k**.
+**Preserved hypotheses cannot reconstruct deleted model weights.** Qualification can flip too: D=10,000 / M=3,010 /
+R=8,908 / K=3,300 gives exact S 22.029658047728063 (**FAIL**) against recorded 22.0296 (**PASS**) — an excess of
+5.80e-05 pp, far above the 1e-9 tolerance. It confirmed my reviewers' arithmetic (11591/55191 → 0.21002) and supplied
+these as the executable replacements. It also checked the narrower case honestly: on these fixed denominators, 5-dp
+rounding flips **none** of the five source guards, the conversational guard or the absolute D boundary.
+
+**Bridge deployed immediately** (`experiments/p4/preserve_validation_ckpts.sh`, running outside the trainer): every
+validation checkpoint is **hard-linked** into `runs/<run>/preserved/` so rounded-S retention can never delete it.
+Hard links cost no space while the original lives and the data survives the trainer's unlink; ~1.39 GB each, ~83 GB
+for a full run, against 9.5 TB free. This was already urgent, not hypothetical: `best/` held 4,000/6,000/8,000 and
+**step_2000's weights had already been evicted** — those weights are gone, its hypotheses remain. Exact decision
+handling (integer counts for panels, sources and conversation; S, eligibility, retention, selection, replay and
+finalization derived without display rounding) is owed **before any selection or pruning among eligible
+checkpoints**. Keep the existing empty-reference-row behaviour; a panel or source with zero total reference words
+must block authoritative evaluation rather than silently score zero.
+
+**#1 / #2 — rejecting those patches was right; leaving unrestricted restarts available is not.** Their safe
+deployment point is a deliberately checkpointed maintenance pause, not a scientific milestone. Minimum: one immutable
+experiment identity binding manifest content, tokenizer, init/head provenance, recipe, required panels/baseline and
+authorized policy, compared before loading resume state, with legacy checkpoints admitted only by an audit bound to
+the **exact checkpoint sha256**; identity separated from run-directory location; per-startup records that do not
+overwrite the only execution history; one pinned policy generation that identifies diagnostic N40, the withdrawn
+floor, diagnostic N60 and completed-horizon qualification, where a missing key never silently restores `terminal` and
+a bare legacy name never resolves through a "latest version" map; and rejection handled **before** GPU/model loading.
+Two of my proposed mitigations are refused: "soft treatment of recomputed digests" (an unavailable read and different
+content are not the same thing) and an unrestricted `P4_IDENTITY_OVERRIDE` (an exception must name the specific
+mismatch, checkpoint and authorized transition). The 381 MB re-read is ~3.8 s and is not a reason to skip binding.
+Related hole found: `configure()` runs at `p4_train.py:1474`, **before** `_RUN_DIR` is assigned at 1515, so the outer
+handler can report an ABORT without writing a run-local one — and requeue indefinitely.
+
+**#9 — REOPENED.** The X→Y protection and cross-directory registry are real improvements, but: `--no-resume` bypasses
+shard reuse and re-decodes existing items (council R executed it: **one existing row became two**); `open_event()`
+accepts an already **completed** event when identity and directory match, so `--force --no-resume` permits another
+decode without the second-event override; the entry point still does not require qualified normal completion and the
+prescribed selected checkpoint; and the identity covers FLEURS and baseline files but **not holdout and Vaani**,
+which the separate panel evaluator exposes without this machinery.
+
+**The five I called fixed are incomplete.** #3: a record with the right update but wrong run/checkpoint/policy
+identity still passes, a bare `sel["gate_n40"]` still passes with no file, and `existing_val_record()` still reuses an
+unrelated checkpoint's record. #4: the supervisor still declares completion from the last **logged** update, so
+"log 120k → crash before checkpoint/validation → false COMPLETE" survives. #5: `best/` alone is still missed,
+`--resume` bypasses the guard including terminal-record checks, and there is still no process-lifetime run lock. #6:
+panel identity and coverage are unbound — a truncated or replaced panel is accepted, and source guards iterate only
+the sources **present** (it removed four D sources and the guards still passed). #8: the older
+`run_post_union.sh` remains executable without the guard and still launches a 150k supervisor.
+
+**A tenth defect.** The external memory watchdog `systemctl stop`s after three 13.0 GiB breaches but writes no durable
+terminal cause; the trainer records `reason="graceful_stop"`; the supervisor therefore treats it as resumable and
+clears the STOP. A watchdog stop requiring owner-authorized recovery silently becomes a routine handover. Persist the
+external cause **before** signalling and give it precedence.
+
+**Owed, batched into one controlled pause** (no fix-by-fix restarts): exact decision handling; identity + policy
+generation with a launch preflight the replacement worker actually invokes; the #9 reopenings before any held decode;
+the five completions; the watchdog cause; and deployment **verified by reading the unit that will run**, never
+inferred.
+
+### 8w.10 The batched repair — 2026-09-09 ~02:30 UTC, at update 8,664
+
+Owner: *"If you have to fix anything, then fix it and get it settled. Don't keep any bugs floated around. ... I hate
+sunk cost fallacy."* and *"my goal is not to restart this my goal is what should be done should be done."*
+
+**No restart from zero.** The repairs are to decision, identity and launch machinery — not to the recipe, corpus, LR
+schedule or initialisation. The weights at 8,664 came from the same path that will produce 120,000; the four
+validations were recomputed exactly with no decision changed; the checkpoints are preserved. A restarted run would be
+identical in kind, so restarting would spend ~9.9 GPU-h to arrive at the same place. Anti-sunk-cost cuts both ways:
+restarting to feel clean is the same fallacy pointed the other way. One controlled stop at 8,664 loaded the code; the
+weights continued.
+
+| defect | state | what was done |
+|---|---|---|
+| **#7** rounding | **FIXED** | `score_pairs()` carries integer edit/reference counts for panels, sources and the conversational slice. `exact_wer` / `exact_per_source` / `exact_conversational` / `exact_empty_rate` / `selection_score_exact` derive decisions from them and **fall back** to the recorded value for the four pre-existing records (never raise — council Q's objection). `S_exact` is recorded and `decision_s()` routes selection, the tie band, retention and the plateau anchor through it. Council R's counterexample is now a regression test: exact ΔS 0.049935 keeps 100k tied and selected, recorded ΔS 0.050400 splits it and would delete 100k. |
+| **#6** panels | **FIXED** | `guards()` iterates the **registered** (baseline) source set, so removing four of five D sources now fails instead of passing on the survivor. A panel or source with zero total reference words raises `PanelIntegrityError` and `guards()` reports non-evaluable — never a 0 % pass. The per-row empty-reference tolerance in `p3_common.wer_counts` is untouched. |
+| **#3** evidence | **FIXED** | Milestone evidence must be a durable **file** — a bare `sel` flag no longer authorises anything — bound to its update, this `run_uid` and the policy generation. `existing_val_record()` refuses a record stamped with a different checkpoint sha. `_d_frozen_history` raises on invalid JSON, a missing/negative update, a non-finite WER or conflicting records. |
+| **#5** launching | **FIXED** | A process-lifetime `flock` on the run directory, taken **before** any state is inspected or the model is loaded. A terminal `STOP`/`ABORT` now blocks `--resume` too, not just a fresh start (a graceful stop still resumes). `best/`, `preserved/`, `IDENTITY.json` and `startups.jsonl` join the evidence that refuses a fresh start. |
+| **#4** completion | **FIXED** | The supervisor no longer declares COMPLETE from the last **logged** update: it requires the final checkpoint **and** the final validation, and otherwise relaunches to finish rather than declaring success. |
+| **#8** dispatchers | **FIXED** | `run_post_union.sh` — the sibling missed on 2026-09-08 — is disarmed (exit 9) like `run_post_union_N.sh`. |
+| **#10** watchdog | **FIXED** | `watch_p4.sh` persists a `WATCHDOG_STOP` record **before** signalling, and the supervisor refuses to start over one. A watchdog stop no longer degrades into the trainer's generic `graceful_stop`. |
+| **#12** configure | **FIXED** | `_RUN_DIR` is established from the raw YAML before `configure()` runs, so a configuration refusal writes a run-local ABORT the supervisor stops on instead of being re-queued forever. |
+| **#2** policy | **FIXED** | Policy **generations** pin semantics (`n40/2026-09-08/terminal-screen`, `n40/2026-09-09/diagnostic-no-floor`) — "diagnostic" meant two things in one evening. A **frozen** legacy map resolves an old bare name to the generation it actually had, never to "latest". Only listed migrations are authorised; an unlisted one aborts. A **missing** key is refused, not silently defaulted to `terminal`, and the trainer turns every policy refusal into `abort()`, never an uncaught raise the supervisor re-queues forever. |
+| **#1** identity | **FIXED (content-bound)** | `IDENTITY.json` binds run_uid, training-manifest **content sha** (re-hashed each startup, 1.1 s measured — no size/mtime cache a `cp -p` could satisfy, and verified against `FREEZE.sha256`), tokenizer sha, init label and sha, schedule, effective batch, policy generation and the panel set. A mismatch on any hard field aborts naming the field and both values. A checkpoint predating the binding is admitted **once** as legacy and the admission is recorded. `startups.jsonl` is append-only, so `run_meta.json` is no longer the only execution record. |
+| **#9** held decode | **REOPENED, not yet fixed** | `--no-resume` re-decodes existing items, a completed event is re-enterable with `--force --no-resume`, the entry point does not require qualified normal completion, and holdout/Vaani sit outside the identity. **Not reachable before 14 September**; it remains a hard precondition before any held decode. |
+
+**156 checks pass, 0 fail, 0 skip.** Deployment is **verified by reading the unit that will execute**, not inferred
+from the edit — the correction council R demanded after I made that mistake twice in one evening.
+
+### 8w.11 Defect #9 closed — the held decode really is one decode (2026-09-09 ~03:00 UTC)
+
+Owner: *"So why can it, can you not fix it now?"* He was right: "not reachable until 14 September" was a scheduling
+excuse, not a technical one. All four of council R's reopenings are fixed, with 48 checks.
+
+A held-out set is only honest if it is scored **once**. Score it repeatedly and you can pick the run that looks best —
+by accident is enough — and the number stops being a measurement. Each hole below allowed exactly that.
+
+1. **`--no-resume` re-decoded over an existing shard**, appending a second row per clip, so the score was computed
+   over duplicates. Council R executed it: one row became two. Now refused outright, and the shard is left untouched.
+2. **A COMPLETED event was re-enterable** when identity and directory matched, so `--force --no-resume` permitted a
+   second decode of the sealed set without the second-event override. Re-entry is now for *resuming an interrupted*
+   decode only; a completed event refuses unless the owner records why and sets `P4_FINAL_TEST_SECOND_EVENT=1`.
+   Resuming an *unfinished* event still works, and is tested.
+3. **Holdout and the Vaani validation/test splits sat outside the machinery entirely** — `tools/p4/p4_panel_eval.py`
+   could decode them at any time, any number of times. They are protected one-shot panels (§2, and the Vaani row of
+   §1: *"validation 10,105 and test 12,695 are PROTECTED one-shot panels ... decoded only after final selection"*).
+   `authorise_protected_panels()` now refuses them — by panel name **or** by a `--manifest` override pointing at one —
+   unless the phase-level held-decode event exists, gated on **the same record** `p4_final_test.py` mints, so
+   "the held decode is authorised" has one meaning in Phase 4 rather than two. Every permitted decode is appended to
+   `experiments/p4/protected_panel_decodes.jsonl` and a repeat prints a warning naming the prior count. The check runs
+   **before** the model is loaded, so a refusal costs no GPU.
+4. **The entry point took any `--ckpt`.** `require_qualified_selection()` now reads
+   `experiments/p4/qualified_selection.json` and requires a **normal** ending, a **passed** qualification, and a
+   `--ckpt` that is the selected checkpoint by path *and* sha256. Absent record, terminal ending, failed
+   qualification, or a substituted checkpoint: refuse, decode nothing. Until the run completes this always refuses,
+   which is the correct answer. `P4_ALLOW_UNQUALIFIED_FINAL=1` is the explicit, warned override.
+
+**All eleven defects from councils Q and R are now closed.** 156 + 48 = 204 checks pass, 0 fail, 0 skip.
+
+### 8w.12 SPRING-INX and Vaani: recovery examined and CLOSED — 2026-09-09 ~04:00 UTC
+
+Owner asked whether the fully-Bengali half of SPRING-INX could be recovered, and whether Vaani should come back with
+it: *"if those 308 good hours has no Latin just Bengali sentences ... you could have kept it right"*. Investigated in
+full — councils S and T, a ten-agent verification workflow, and independent confirmation by the orchestrator. Outcome:
+**both remain excluded, the current run continues untouched, and no next-phase registration is opened.** Owner, closing:
+*"okay fuck em ... keep running whatever we have and no need for next phase"*. **Zero GPU-hours were spent** — the whole
+investigation was text and md5.
+
+**SPRING-INX — fails G0.9(b) by 35×, on a gate that had never been run.** The build report records
+`g09b spring_inx = {ingested_rows 240941, hash_coverage 0.0, verdict "INCOMPLETE_HASHING"}`: the script gate G0.9(a)
+failed the bucket first, so nobody ever hashed it for duplicates. Hashed now: **42,645 cross-release (text, duration)
+matches = 17.699 % of incoming rows, 109.8 h of the same audio in both R1 and R2**, confirmed by md5 on 150 sampled
+pairs (**149 identical**; the workflow's independent 120-pair check was 120/120 with a 0/30 control). The G0.9(b)
+ceiling is **0.5 %**, and the same rule at **1.22 %** already excluded `macro_validated` from training. G0.9(b)'s own
+ruling names this bucket: *"macro_filtered, madasr, vaani, spring_inx are judged by the same rule once fully hashed."*
+
+Three further defects, all invisible to any script predicate because they are 100 % Bengali-script and Latin-free:
+**6,065 rows carry `~`** — a false-start annotation marker that survives the frozen surface because U+007E is category
+**Sm**, not punctuation, so it would enter the training target as a lexical character; **572 rows use `ৰ` (U+09F0,
+ASSAMESE letter RA)**, i.e. wrong language, not wrong script; **105 rows** carry U+09F7/U+09FA/U+09BD punctuation and
+corruption that also survive.
+
+**Orchestrator errors corrected, on the record.** I reported "298.5 h clean" and called the set ADMISSIBLE. Both were
+wrong. The honest figure after de-duplication is **~250 h**, and "admissible" was asserted having run **one gate of
+five**. I also applied the wrong gate to the 910 protected-panel matches: those are **transcript overlap**, whereas
+G0.9(b) governs **audio** duplicates, so "0.3777 % < 0.5 % → PASS" measured nothing relevant. My protected set also
+omitted FLEURS test and Vaani val/test.
+
+**Two council corrections that were themselves wrong, withdrawn by council T:** my disposition counts balance exactly
+(113,943 + 2 + 2,926 + 0 + 910 + 123,160 = 240,941), and the 647.71 h vs 625.60 h gap is the documented ingest
+rejection (5,935 cps-out-of-range + 408 duration + 10 empty = 6,353 rows), not an unexplained discrepancy.
+
+**Vaani — clean, and rejected for a different reason.** `g09b vaani = {ingested_rows 86861, defect_rows 2,
+rate 2e-05, hash_coverage 1.0, verdict "pass"}`. It passed every gate, ran its own 8k admission pilot, and was **NOT
+ADMITTED, INCONCLUSIVE**: S 20.999 vs control 21.073, **ΔS −0.074**, 95 % CI **[−0.253, +0.106]**, simultaneous upper
+**+0.154**, guards clean, conversational Δ exactly 0.000. Council T: *"'Not harmful' overstates the record"* — an
+observed aggregate equality is not proof of equivalence. Its standalone verdict stands.
+
+**The bundle test that was designed and will not be run.** Council T specified one fixed-mixture pilot,
+T2 = O+MaCro+SPRING-subset+Vaani, init A from update zero, 8,000 updates, warmup 1,000, peak 2e-4 on the original 150k
+cosine prefix, to match the frozen comparators B (O+MaCro 8k, S ≈ 20.531) and O (O_ref 8k, S ≈ 21.0735). Admission
+required **all** of: S(T2) ≤ 20.231; S ≤ 20.7735 vs O; the 20.280 union ceiling; paired 95 % and simultaneous upper
+bounds < 0 against both comparators at **m = 6, q = 0.99583**; D within +0.30 of both; every source within +1.0 of
+three references; **Conv(T2) ≤ 21.392 %** — a 0.50 pp *improvement*, ≈34 fewer net edits over 6,628 words — and ≤ 5
+empties. On a pass, H would have scaled by **rows** to 120,000 × 1,293,803 / 1,084,696 = 143,133.5 → **144,000**
+(28.048 epochs), costing **+47.42 GPU-h** over continuing (9.18 pilot + 10.68 repeated prefix + 27.55 horizon).
+Council T also flagged that the **350 GPU-h ceiling** was not certified for that path: it required P + E ≤ 175.49 h.
+
+**Why continuing was the right call on the evidence.** SPRING fails a registered gate by 35× and recovering it would
+require exactly the row-level repair the contract forbids for a bucket that failed a clause. Vaani alone measured
+−0.074 against a *weaker* comparator than the −0.30 the new bar demands, with a 0.50 pp conversational improvement on
+top. And the live run was improving 1.4 pp per 2,000 updates at the moment of the decision (WER 25.624 % at 10,000).
+
+### 8w.13 Card policy: A5000 preferred, measured — 2026-09-09 ~17:00 UTC
+
+Owner: *"okay stay on A5000 whenever you can"*, after *"you should always occupy one GPU because training has to be
+going"* and *"every time someone occupy GPU you should let me know"*.
+
+**What happened.** The A6000 filled to **128 MiB free** (co-tenant at 38 GB across two processes). The run was moved by
+hand: graceful stop at update **19,921** (checkpoint written), supervisor killed **with no live worker present** so
+council U's `adopt_active()` defect could not fire, then relaunched with `a5000` preference and `P4_ONLY_PREF` dropped.
+Resumed on the A5000 at 16:59 UTC. Ten minutes after we left, the A6000 freed to 10,323 MiB — the exact thrash a naive
+"return when free" rule would have triggered.
+
+**The measurement that settles the card question.** Same run, same corpus, same batch, comparable audio per batch:
+
+| card | steps | mean wall | rate |
+|---|---:|---:|---:|
+| A6000, contended (co-tenant 38 GB) | 1,421 | 4.432 s | **812 upd/h** |
+| A5000, uncontended | 35 | 4.133 s | **871 upd/h** |
+
+**The A5000 is +7.2 %**, and the horizon moves 5.13 d → **4.79 d**. My prior estimate — from spec-sheet TFLOPS — was
+that the A5000 would be 25–35 % *slower*; it was wrong because it priced a whole A6000 rather than the third of one we
+actually had. **A smaller card held outright beats a larger card shared.** Free memory is therefore the wrong migration
+trigger; measured throughput is the right one.
+
+**Registered policy.** Supervisor argument `PREF=a5000` with `P4_ONLY_PREF` unset gives card order `a5000 a6000`:
+prefer the A5000; fall back to the A6000 only when the A5000 has under `P4_NEED_MIB` (12,000 MiB) free or is otherwise
+unusable; wait if neither qualifies; and with `P4_NO_YIELD=1` never voluntarily surrender a card already held. Training
+never sits idle while a card is available, and never returns to the A6000 merely because memory freed.
+
+**Notifier.** `experiments/p4/watch_cotenants.sh` polls both cards every 60 s and emits one line per change — a foreign
+compute process arriving on or leaving either card — with each card's free memory and which card is ours. Read-only:
+it never signals a process. Armed 16:56 UTC.
+
+## 9. Log
+- 2026-09-09 ~17:00: **§8w.13 — moved to the A5000 and registered it as the preferred card** (owner: "stay on A5000 whenever you can"). The A6000 had filled to 128 MiB free; graceful stop at 19,921, supervisor swapped with no live worker so the `adopt_active()` defect could not fire, resumed 16:59. **Measured: A5000 871 upd/h vs contended A6000 812 upd/h, +7.2 %**, horizon 5.13 d → 4.79 d — my spec-sheet estimate of "25–35 % slower" was wrong, because a shared A6000 is not a whole A6000. Policy: prefer A5000, fall back only when it has <12,000 MiB free, never idle, never yield a held card. Co-tenant notifier `watch_cotenants.sh` armed.
+- 2026-09-09 ~04:00: **§8w.12 — SPRING/Vaani recovery examined and CLOSED, owner: "keep running whatever we have and no need for next phase".** SPRING-INX fails **G0.9(b) at 17.699 % duplicate audio against a 0.5 % ceiling** (42,645 cross-release matches, 109.8 h counted twice, md5 149/150) — a gate whose `hash_coverage` was **0.0** because the script gate had killed the bucket first. Plus 6,065 rows carrying `~` (survives the frozen surface: U+007E is Sm, not punctuation), 572 Assamese-letter rows, 105 corrupt-codepoint rows — none visible to any script test. **My "298.5 h clean / ADMISSIBLE" was wrong**: ~250 h after dedup, and asserted on one gate of five; I also applied the audio-duplicate gate to a transcript-overlap measurement. Vaani is genuinely clean (`hash_coverage 1.0`, 0.002 % defects) but stays NOT ADMITTED, INCONCLUSIVE. Council T's bundle pilot (T2, m=6, Conv ≤ 21.392 %, H→144,000, +47.42 GPU-h) is designed and **will not be run**. Zero GPU-h spent; production never paused.
+- 2026-09-09 ~03:00: **§8w.11 — defect #9 CLOSED**, the last one open. Owner: *"why can you not fix it now?"* — and he was right that the deferral was a scheduling excuse. `--no-resume` no longer re-decodes over an existing shard (it made one clip two rows and scored duplicates); a **completed** event is no longer re-enterable (`--force --no-resume` allowed a second decode of the sealed set); holdout and the Vaani val/test splits are now gated on the same phase-level event record, refusing by panel name **or** manifest override, logged to `protected_panel_decodes.jsonl`, checked before the model loads; and the entry point now requires a **qualified normal ending** naming the selected checkpoint by path and sha256, refusing a substitution. **All eleven council Q/R defects closed. 156 + 48 = 204 checks pass.**
+- 2026-09-09 ~02:30: **§8w.10 — the batched repair**, at update 8,664, weights kept. Ten of the eleven open defects fixed in one controlled stop: exact decisions on integer counts (with council R's tie-band counterexample as a regression test), guards over the **registered** source set, durable checkpoint-bound milestone evidence, a process-lifetime run lock, terminal records blocking `--resume`, supervisor completion requiring the final checkpoint **and** validation, the second `rm -rf` dispatcher disarmed, the watchdog cause persisted before signalling, `configure()` able to write its own ABORT, policy **generations** with a frozen legacy map and authorised-migrations table, and content-bound `IDENTITY.json` + append-only `startups.jsonl`. **#9 (held decode) stays open** — not reachable before 14 Sep, still a hard precondition. **156 checks pass.**
+- 2026-09-09 ~02:15: **§8w.9 — council R: my closure was overstated.** It broke #7 with an executable counterexample on the real functions: exact ΔS 0.049935 pp vs rounded 0.050400 pp flips the selection tie band, and `retain` then **deletes every copy of the checkpoint the registered rule would have selected** — and preserved hypotheses cannot reconstruct deleted weights, which was my whole justification for deferring. Qualification can flip too (exact 22.029658 FAIL vs recorded 22.0296 PASS). **Bridge deployed immediately**: `preserve_validation_ckpts.sh` hard-links every validation checkpoint into `preserved/` outside the trainer (zero space, 9.5 TB free); `step_2000`'s weights were **already evicted** before I got there. It also found my import-smoke guard is **not in the deployed unit** (`Restart=no`, 0 occurrences — I edited the launcher and inferred deployment, the same mistake twice), reopened **#9** (`--no-resume` duplicated a row; a completed event is re-enterable; holdout/Vaani unbound), showed **all five** defects I called fixed are incomplete, found a **tenth** (watchdog stop degrades to a resumable graceful_stop), and corrected my reversed probability figure in §8w.2a (9.09 % **pass**, 90.91 % reject). Repairs are batched into one controlled pause; the run continues untouched meanwhile.
+- 2026-09-09 ~02:00: **§8w.8** — ultracode workflow (13 agents) on the four open §8w.7 defects. **#9 CLOSED**: the held evaluator now binds checkpoint/decoder/scorer/panel identity before the first prediction, stamps every shard row, and mints its event outside any output directory (35 new checks; the hard precondition before any held decode is met). **#7 MEASURED**: all four validations recomputed exactly — largest S error **1.39e-04 pp against a 5.662 pp margin**, **no decision would have changed**, and the design's only claimed decision-flip was arithmetically false (round(11591/55191,5)=0.21002, not 0.21). **#1 and #2 HELD**: both designs were rejected — one would brick the §5 pilot handoff and abort unrecoverably with no override, the other would crash-loop the supervisor forever and silently adopt a bumped policy version. **§8w.8a**: the reviewers found that `run_arm.sh` execs from the working tree under `Restart=on-failure`, so any edit to the trainer modules is armed to load on the next crash and a half-applied edit becomes a silent 10-minute relaunch loop with no ABORT; an import smoke before `exec` now turns that into one recorded terminal stop. No restart required — the running code is byte-identical to disk. **144 + 35 checks pass.**
+- 2026-09-09 ~00:55: **§8w.2a WITHDRAWN before it ever ran** — council Q broke my learning floor with a case that terminates a run holding a *qualifying* 38k checkpoint (21.000 by 18k → 19.400 by 38k → 21.050 at 40k), and with exact equality killing a model stable at 18.000. Accepted in full, including that my stop message asserted what I had disclaimed and that "no chosen constant" was false. Replaced by a non-terminal Δ₄₀ = median(D₃₆ₖ,D₃₈ₖ,D₄₀ₖ) − median(D₁₆ₖ,D₁₈ₖ,D₂₀ₖ) warning; **no terminal early-performance rule remains for init N**. §8w.7 records council Q's nine execution-integrity findings: **five fixed now** — the worst being `validate()` silently dropping a registered panel and re-weighting S (a fictitious ~1.5 pp improvement in the selection metric), plus `--steps` unbounded by H (~34.6 GPU-h), milestone evidence not bound to its update, the fresh-start guard blind to val/milestone/STOP evidence, and a surviving `rm -rf` dispatcher — and **four open with deadlines** (5-dp rounding before selection; weak resume identity; unversioned policy migration; the one-shot evaluator mixing checkpoints across a restart, a hard precondition before any held decode). **144 checks pass, 0 fail, 0 skip.**
+- 2026-09-09 ~00:10: **§8w.2 ADOPTED** at update 7,212 (owner: *"just do what you need to do"*): update 40,000 becomes DIAGNOSTIC, qualification moves to the selected checkpoint after 120,000. Adopted **with §8w.2a**, a learning floor council P did not review — because `check_registered_stops` gates the §5 aborts on `init == "A"`, so council P's version left init N with **no performance stop at all** for 92–98 GPU-h. Floor: at 40,000, terminal unless frozen D beats this run's own best frozen D by update 20,000, empties ≤ 1 %; a missing reference is an integrity failure. No Phase-1 number and no chosen constant enter it. **Council Q is attacking it**; if it lands a hit I cannot answer, the floor comes out before 40,000. **§8w.6 — a worse bug, found while adopting:** `run_arm.sh` decided `--resume` at unit-WRITE time and the production unit was written when the run dir was empty, with no trainer guard, so restarting that unit would have **silently retrained the sole production run from update 0 over its own artefacts**. Fixed in two layers (`fresh_start_refusal()` + the resume decision moved inside the unit). Adoption required a graceful stop at 7,212 and a relaunch, which also replaced the unsafe transient unit. **139 checks pass, 0 fail, 0 skip.**
+- 2026-09-08 ~23:45: **§8w — the Phase-1 comparison curve was corrupted** in every packet from council I on: EarlyStopping improvement events labelled `(i+1)*1000`, i.e. the running-minimum envelope on a fabricated x-axis (label 19,000 = true update 35,005, understated by 84 %). True curve extracted from the TensorBoard protobufs (`tools/p4/p4_phase1_curve.py` → `phase1_val_curve.json`, 39 validations); the cold start is **9.85 / 5.36 / 6.08 pp AHEAD** of Phase 1 at updates 2k/4k/6k, not 6.4 behind. No gate or threshold ever read the curve (§8s already said so; `thresholds_derive_from_measured_baseline_not_the_curve` proves it). Council P: **no restart, no hyperparameter change**; reaffirms making N40 diagnostic with qualification on the selected checkpoint at 120k; rejects the proposed 27 % floor; withdraws the claim that "Phase 1 itself would have missed this screen". Landed: `n40_policy` (default `terminal` = unchanged), config-wins-on-resume migration, corrected-curve regression suite. Also fixed: the opt-in live-checkpoint case hard-coded init A and H=150,000, so it failed against the production run — it now derives both from the checkpoint. **130 checks pass, 0 fail, 0 skip.** §8w.2 is PROPOSED, pending the owner's recorded adoption before update 40,000.
+- 2026-09-08 15:10: §8v — H re-derived to 120,000 for the sole cold start (council N; owner "yeah do it"); H150k run stopped at 1,614 and archived; restart from zero as N_O+macro_filtered_H120k.
+- 2026-09-08 14:40: OWNER: no yielding during the full run. P4_NO_YIELD=1 added to the supervisor (rename-safe); N's supervisor swapped (worker adopted, not restarted). Today's yields to a ~360 MiB third-party job: pilot_U ×3 (06:48–06:57), N ×1 (14:34, update 1,177).
+- 2026-09-08 13:02–13:15: init-N qualification (§8t.5) on the A6000, corpus O+macro_filtered: smoke 40 updates → checkpoint → resumed at 40 with handshake OK → 41–60 → validation at 60 (D 102.5 % WER, 6.75 % empties at LR 2.4e-5: garbage of the right length, NOT collapse); loss 21.0 → 17.98; run_meta init N, NVIDIA sha 1f2c819d, head 8d9699b8 (matches provenance). The dispatcher refused on its own checker's off-by-one (expected lr_at(60); the trainer correctly applied lr_at(59) = 2.4455e-5) — fixed. Longest-clip profile under the N config: peak reserved 8.742 GiB < 13.0, pass. **N_O+macro_filtered launched from update ZERO by hand at ~13:15 UTC**: NVIDIA English encoder + fresh Bengali head, 1,692.4 h, H = 150,000, peak 5e-4 / warmup 2,000, on the A6000.
+- 2026-09-08 13:01: union U NOT admitted — best S of any arm (19.871, Δ −1.202) but conversational +0.829 vs control breaches the +0.5 guard; corpus for the NVIDIA-only run = O+macro_filtered (1,692.4 h). Dispatcher proceeds to the init-N smoke.
+- 2026-09-08 ~07:30: §8t ADOPTED (council L) on the owner's NVIDIA-only directive: pilot_U finishes to decide the corpus; control completion dropped; N40 terminal, N60 diagnostic; no plateau; fixed 350 GPU-h; single-run selection and evaluation; record wording in force. Post-union dispatcher disarmed and replaced. Packet LR values for N at 100k/140k corrected.
+- 2026-09-08 ~06:55: §8s ADOPTED (council K): N-first executed; N40 A-relative clauses deleted; A's 8k pinned; A20 failure terminal regardless of N; the gap is used for the O_A6000 control completion, not to advance A; N waits for an A5000 if the A6000 qualification fails; a GPU smoke of init N precedes launch. Init-N path built + tested on CPU (110 tests).
+- 2026-09-08 ~06:15: council J (init weights, owner's direct challenge) adopted as §8r: NO empirical A-vs-N test exists; full run does NOT wait (option a); minimum signable experiment specified (paired holdout + Vaani, both to full budget); paired one-shot diagnostics on both finalists ADOPTED; budget 350→525 ADOPTED on the owner's 'yes'; launch floor NOT lowered (measured whole-process 10,096–10,230 MiB vs 10,538 free); N serial after A unless the A5000 frees.
+- 2026-09-08 01:30/02:38 UTC: madasr ADMITTED (Δ −0.994, sim −0.702); vaani NOT admitted, inconclusive (Δ −0.074, CI includes 0). U = O ∪ {macro, madasr} built by the hand-off, 1,179,937 rows / 1,841.3 h; its 8k pilot launched on the A6000. Union threshold: ≤ 20.280 and the O_ref rule.
+- 2026-09-07 ~21:45: council I (init ablation) verdict recorded as §8q PROPOSED — staged init-N arm on the final corpus, Phase-1-informed cold-start recipe, own 40k/60k gates, one-shots held, global selection, budget 350→525 GPU-h REQUIRES OWNER ADOPTION; launch-floor conflict found (A5000 11,014 MiB free < 12,000) and put to the owner; N cannot launch before A's 20k PASS.
+- 2026-09-07 ~21:10: §8p — owner delegated the plateau-stop question ("you decide"); RULED: plateau STOP is a NORMAL ending → selection → headline; 20k gate failure, pilot aborts, watchdog and ABORTs stay terminal; STOP records now carry `ending`. Lineage recorded: nvidia/stt_en_fastconformer_ctc_large → Phase 1 → Phase 4.
+- 2026-09-07 ~21:00: council H (progress review) adopted (§8o). Its Q11 hypothesis — a crash between the 20k checkpoint and the gate decision lets the resume skip the gate forever — was REAL in the code and is fixed with a durable PASS record, resume-time replay of any owed validation, and a past-20k invariant, under 18 new tests (79 pass, 0 fail, 0 skipped). Packet errors corrected in place. Plateau-STOP-vs-headline put to the owner.
+- 2026-09-07 (owner caught): registering `cv17` was a RELEASE-CHOICE ERROR — we already train on Common Voice 26.0, the newest release in existence, and 17.0 is nine releases older. Recorded in §8n-bis with Mozilla's version registry as evidence. Second ruling the same day removed every release-17 artefact including the analysis record, so §8n(iii)'s measurements are struck.
+- 2026-09-07 (owner): Common Voice's unconfirmed `other` tier PERMANENTLY EXCLUDED, its quality filter struck, 26.7 GB of `other`+`invalidated` audio deleted; verified at the source that Phase 1 ingested `validated.tsv` only from CV 26.0 minus that release's dev/test, so no unconfirmed clip has ever been trained on.
+- 2026-09-07: four-agent main-run readiness workstream (§8n): 10 gate/selection defects fixed under 61 executable tests (incl. a retention bug that could DELETE the selected checkpoint, and the supervisor resurrecting a terminal STOP); admission test's m default corrected to 4 and an ordering proof added; CV17 reconnaissance filed, later WITHDRAWN the same day with its artefacts deleted and its measurements struck (§8n(iii)); conversational survey filed (SPRING-INX ≈280 h the only large candidate, needs an owner amendment to G0.9(a)).
+- 2026-09-06: council D pre-pilot reconciliation (`experiments/p4/council/council_d_prepilot.md`): STOP pilots until Gate 0 closes; two-card controls, RESPIN sentence×dialect cap, Vaani arm runs, SPRING excluded (48.3 % Latin rows), plateau anchor rule, clause fixes adopted; launch checklist = council D Q8. Ledger ≈ 298 GPU-h (soft).
+- 2026-09-05 (later): council C interim audit (`experiments/p4/council/council_c_interim_audit.md`) → STOP pilots until Gate 0 closes;
+  12 required changes adopted above; G0.9(b) reading for MaCro∩CommonVoice duplicates put to the owner.
+- 2026-09-05: owner decisions recorded; councils A/B run; MaCro competition bundle (24.7 GB, 963,636 mp3, 32 kHz mono 48 kbps)
+  and IISc RESPIN `train_bn_clean` (87.1 GB) downloads started; tugstugi CSV inventory and 0-overlap-with-FLEURS audit done
+  (`data4/tugstugi/csv`). tugstugi's `validated` list == competition `valid` split (29,583 of 29,588); his filtered list ⊂ `train`.
+
+### 8w.14 Early FLEURS-test decode at update 88,000 — owner-authorised deviation from §6, and two end-of-run defects it exposed — 2026-09-13 ~16:15 UTC
+
+**What happened.** At update ~90,400 the owner asked for a FLEURS read on the live checkpoint: "whatever checkpoint we have, can you
+run that eval so we could see how this model is performing? I'm kind of curious." The assistant recommended waiting ~39 h for the
+registered single event and set out the cost (loss of the one-event claim; two events on the card); the owner first agreed to wait,
+then asked again. Treated as his decision. Before any decode, `experiments/p4/EARLY_FLEURS_AUTHORISATION.json` was written
+(authorisation, deviation, checkpoint identity + sha256, exposure, reporting rule), per council Z Q5.
+
+**Checkpoint.** The registered selection at authorisation: `best/step_88000.pt`, sha256 `31d0ce4b…`, exported to
+`export/step_88000.nemo`, sha256 `a73e6585…`. Run incomplete (88,000/120,000); no qualified-selection record existed; decoded with
+`P4_ALLOW_UNQUALIFIED_FINAL=1`, which the tool stamps as "not a registered Phase-4 result". Card: our own A5000, niced; training
+unaffected (ETA moved 4 min).
+
+**Result (920 test rows, frozen scorer, 20,000 paired sentence-cluster draws, seed 20260905).**
+
+| | WER pp | CER pp | Δ vs P4 | 95 % CI of Δ below 0 | P(P4 better) |
+|---|---:|---:|---:|---|---:|
+| **P4 step_88000** | **17.5441** | **5.2704** | — | — | — |
+| P2 frozen (qwen3_adapter) | 16.5362 | 4.6781 | **+1.0078** | **no** | 0.0074 |
+| P1 frozen (ehzawad_fastconformer) | 19.6723 | 5.7915 | −2.1283 | yes | 1.0000 |
+
+`meets_success` false, `meets_strong` false. Both baseline re-score gates passed (P2 16.5362 vs 16.54; P1 19.6723 vs 19.672).
+Bundle: `experiments/p4/final_test_EARLY_step88000/` (IDENTITY, COMPLETED, final_test.json, predictions.jsonl).
+
+**Reading, stated carefully.** The dev-panel gain over P1 (−3.18 pp on D) overstates FLEURS transfer (−2.13 pp). P2 leads by
+1.01 pp on FLEURS with 32,000 updates and ~80 % of the LR decay still to run. This is a mid-run reading, not a verdict, and it
+points the opposite way from the development panels — which is what an early look buys.
+
+**Consequences, registered.** (i) Phase 4 now has TWO FLEURS-test events. The end-of-run decode on the qualified selection is
+event two and REQUIRES `P4_FINAL_TEST_SECOND_EVENT=1`; the model card discloses both, with this checkpoint's identity and result,
+whether or not the final number is better. (ii) Nothing else changes: H=120,000, the §4 selection rule and tie band, the P1 guards,
+and the §8v 110k→120k check are all as registered. If this number later influences a decision, that influence is to be written
+into `EARLY_FLEURS_AUTHORISATION.json` §4 at the time.
+
+**Two defects the rehearsal exposed — each would have blocked the headline decode at 120,000, ~37 h later.**
+
+1. **No `.pt → .nemo` export existed.** The trainer validates the live model object (`validate` → `ctc_panel_eval`) and never
+   restores from disk; every evaluation tool restores via `ASRModel.restore_from`, which reads only `.nemo` archives. The run
+   writes `step_*.pt` (model + optimizer + sampler + RNG), which `restore_from` rejects ("not a gzip file"). Nothing in `tools/p4/`
+   or `experiments/p4/` bridged the two. **Fixed:** `tools/p4/p4_export_nemo.py` rebuilds the architecture with the trainer's own
+   `load_init_N` from the config STORED IN THE CHECKPOINT, loads the state dict with any missing/unexpected tensor a hard abort,
+   saves, and — with `--verify` — re-scores the locked dev panel through the exported archive and requires the trainer's recorded
+   WER to 1e-6. Verified at 88,000: exported 0.171680 == recorded 0.171680 on all 5,385 rows.
+2. **`p4_final_test.py` asserted a stale §6 constant.** It was written against a §6 draft giving P1 = 19.57 pp and kept
+   asserting that after §6 was corrected to 19.67 pp (0.19672) on 2026-09-05 — the same day. Every real run therefore stopped on a
+   "discrepancy" (19.6723 measured vs 19.57 asserted) that had been resolved eight days earlier. **Fixed:** `P1_SPEC_WER = 0.19672`,
+   reconciliation recorded in the tool. The `--ack-p1-spec-discrepancy` escape was NOT used: passing it would have written a false
+   discrepancy note into the results bundle. Also reconciled: the benchmark repo's public `summary.json` (0.19650) is an RTX 5080
+   run; §6 registers the A5000 file (`summary_a5000.json`, 0.19672), which is what is on disk and what re-scores.
+
+Full suite after both fixes: 220 passed.
+
+### 8w.15 Post-run plan, owner-stated — 2026-09-13 ~16:40 UTC
+
+Owner, verbatim: "after all the steps whatever we get we will create a non-commercial public open source hugging face repo
+and then we will compare all of them again in this machine."
+
+Registered as the plan, not as a change to the run:
+
+1. **Ship whatever the qualified selection is**, pass or fail on the §6 bar. A §6 failure is disclosed, not hidden, and does
+   not block shipping — the owner's standard is a generalizable model, and P1 is already beaten everywhere at 88k.
+2. **Hugging Face model repo: PUBLIC, CC-BY-NC-SA-4.0.** This supersedes §0's "both repos stay PRIVATE"; the owner said on
+   2026-09-05 "later I will make it public and still it will be NC", and this is that later. Visibility is flipped by the owner
+   only, after the card is written. The card discloses: the two FLEURS events (§8w.14), the OpenSLR-53 CC-BY-SA lineage, the
+   per-source corpus table, the seven-panel numbers, and the §6 verdict either way.
+3. **Re-run the full benchmark on THIS machine, all systems**, using `github.com/ehzawad/bengali-asr-benchmark` unchanged.
+   "All" = the six already in `outputs_a5000/` (P1 ehzawad_fastconformer, hishab_conformer_large, hishab_fastconformer,
+   qwen3_adapter (P2), wav2vec2, whisper_medium) plus Phase 4. `run_all_benchmarks.sh` loads models by path and dispatches on
+   `.nemo`, so Phase 4 enters as one MODELS line pointing at the `p4_export_nemo.py` archive of the shipped checkpoint — the
+   same artefact the sealed decode used. The Qwen3 adapter is not in that MODELS list and is run through its own backend as
+   before. The comparison uses the PUBLISHED artefact (compare what you ship), on the A5000, which is where the registered
+   comparators were measured.
+4. Order: run completes → selection → qualification → export → sealed decode (event two) → one-shot panels → card → HF
+   public → benchmark all seven on the A5000 → GitHub Phase-4 repo pushed final.
+
+### 8w.16 Third missing link in the end-of-run path, and the protected-panel gate — found and fixed 2026-09-15 ~04:10 UTC, ~3 h before H
+
+Walking the end-of-run path step by step at update ~117,000 (the owner: "make sure all the necessary steps done with
+precision and correctness") found that **nothing wrote `experiments/p4/qualified_selection.json`**. `p4_final_test.
+require_qualified_selection` reads it, its reader is tested against a synthetic file, and the sealed decode refuses without
+it — but no tool produced it. Same class as the missing exporter (§8w.14 defect 1): the reader existed, the writer did not.
+
+**Fixed: `tools/p4/p4_qualify.py`**, the single writer. In order: (1) normal ending = final validation at H in `val.jsonl`
+AND `step_H.pt` on disk (council R, §8w.9); (2) selection by `p4_common.select_best`; (3) §8w.2 item 4 qualification on
+THAT checkpoint — S ≤ 22.0296, D ≤ 21.348, all guards, 1e-9 pp; (4) export via `p4_export_nemo` with exact dev-WER
+reproduction; (5) atomic mint, refusing to overwrite. Horizon is read from `run_meta.json` and cross-checked against the
+latest checkpoint's own `horizon` — never `P4.HORIZON`, which is still 150,000 and would have made the tool wait for a
+`step_150000.pt` that never comes. `--dry-run --as-of 110000` rehearsed the whole chain: selection step_100000 at S 16.98500
+(matching the live report at the time), qualified, export verified 0.16889 == 0.16889 on 5,385 rows, nothing written.
+
+**Also fixed, council AA hazard 1: `p4_panel_eval.authorise_protected_panels`.** It accepted ANY existing event record —
+so the early unqualified FLEURS event (§8w.14) would have authorised the one-shot panels — and never checked that the event's
+checkpoint was the qualified selection. Now: requires `qualified_selection.json` with a qualified normal ending, requires
+the event's `ckpt_sha256` == the record's `selected_sha256`, requires event status `completed`; prior-decode warnings count
+THIS panel's decodes rather than every log line; and SPRING R1/R2 validation/eval are added to the protected list (§2
+registers them one-shot; the gate did not). Tested against the live state: early event + no qualified record → ABORT;
+sha mismatch → ABORT; sha match → permitted with a correct per-panel repeat warning.
+
+**And a test that polluted a registered audit log.** `test_protected_panels` exercised the gate with the real
+`PROTECTED_DECODE_LOG` path, writing synthetic `/x/vaani_test.jsonl` rows into `experiments/p4/protected_panel_decodes.jsonl`
+on 2026-09-13 — which the new per-panel counter would have read as a real prior decode of `holdout`. The test now redirects
+the log to a temp path; the two synthetic rows were moved to `protected_panel_decodes.jsonl.test_residue_2026-09-13`
+(provably synthetic: `/x/` path, empty argv, same second, the early event which never decoded holdout). The real log is
+empty, as it should be before the one-shot decodes. Suite: 220 passed; the suite no longer touches the real log.
+
+The end-of-run sequence, every step now backed by a rehearsed tool: normal ending (supervisor COMPLETE) → `p4_qualify.py`
+(select, qualify, export, mint) → `p4_final_test.py` with `P4_FINAL_TEST_SECOND_EVENT=1` (event two, §8w.14) →
+`p4_panel_eval.py` one-shots gated on the same record → §8v final-window report → card → HF → benchmark ×7 (§8w.15).
+
+### 8w.17 Normal ending at H=120,000 and the §8v final-window report — 2026-09-15 07:52 UTC
+
+**Ending: NORMAL.** Supervisor wrote `COMPLETE at update 120000 (final checkpoint and validation both present)` at
+2026-09-15T07:52:19Z and exited 0. `val.jsonl` holds the update-120,000 record; `milestones/step_120000.pt` (1,388,242,301
+bytes) and `ckpt/step_120000.pt` are on disk; no STOP, ABORT or WATCHDOG_STOP was written. Run `971d3f8245a4d3c3`,
+60 validations, 38 eligible, 27 epochs, 134.9 GPU-h on this run per hourly.jsonl (phase ceiling 350).
+
+**Validation 120,000 (panel D, frozen surface):** WER **16.813**, CER **5.590**, S **16.87973**, conversational 18.98,
+1 empty (0.019 %), all guards pass. Every source below Phase 1: commonvoice −7.057, subakko −5.609, openslr53 −4.667,
+kathbath −3.072, indicvoices −2.119, conversational −2.595 pp. Panels M 12.78 / K 11.71 / R 30.64.
+
+**Selection (§4, by `select_best`):** **step_116000 at S 16.89126**, tied within 0.05 pp with 118,000 (16.89416) and
+120,000 (16.87973); the tie goes to the earlier checkpoint. **4.09 pp better than the Phase-1 composite baseline
+21.0296** (S) and 3.54 pp better on D (20.348 → 16.813 at 120k; 16.831 at the selected 116k).
+
+**§8v final-window report (registered by council N: a ≥ 0.20 pp best-eligible-S gain over 110k→120k undermines
+convergence):**
+
+| measure | through 110,000 | through 120,000 | gain |
+|---|---:|---:|---:|
+| best eligible S | 16.94087 | 16.87973 | **+0.061** |
+| tie-selected checkpoint | step_100000, 16.98500 | step_116000, 16.89126 | **+0.094** |
+
+**NOT tripped**, on both measures. The final 10,000 updates delivered 0.06–0.09 pp against a 0.20 threshold. From
+100,000 onward the composite lived inside a 0.09 pp band and the selection moved once. The registered reading is that
+the model had converged by roughly 100,000 and the last ~20,000 updates (about 25 GPU-h) bought little; per §8v this does
+not prove a shorter schedule would have won, and it authorises no extension. It answers the owner's question of
+2026-09-12/13 ("was 120k enough / undercooked?"): not undercooked; if anything, over-provisioned by ~20k.
+
+**What follows, in order (§8w.16 runbook):** `p4_qualify.py` mint → review workflow → event two (`P4_FINAL_TEST_SECOND_
+EVENT=1`) → one-shot panels → card → HF → benchmark ×7 → pushes. The owner's four pending questions (licence, MaCro record,
+repo reuse-vs-separate, card scope) are put to him now, before any irreversible step.
+
+### 8w.18 EVENT TWO — the sealed FLEURS-test decode on the qualified selection — 2026-09-15 ~08:35 UTC
+
+Run exactly as reviewed by the end-of-run workflow (council AA delegation; review verdict's blockers resolved first):
+`env -u P4_ALLOW_UNQUALIFIED_FINAL -u P4_ALLOW_PROTECTED_PANEL CUDA_VISIBLE_DEVICES=<A5000> P4_FINAL_TEST_SECOND_EVENT=1
+p4_final_test.py --ckpt export/step_116000.nemo --out-dir experiments/p4/final_test`. The early event's registry record
+was copied byte-for-byte to `final_test_event.EARLY_step88000_preserved_2026-09-15.json` BEFORE the override was honoured,
+because `open_event` rewrites the registry (keeping only a `supersedes` stub) before the first clip is decoded.
+
+**Result (920 test rows, frozen scorer, checkpoint sha `bea300ce…` = the qualified selection):**
+
+| | WER pp | CER pp | Δ vs P4 | 95 % CI of Δ below 0 | P(P4 better) |
+|---|---:|---:|---:|---|---:|
+| **P4 step_116000 (event two)** | **17.1162** | **5.1217** | — | — | — |
+| P2 frozen (qwen3_adapter) | 16.5362 | 4.6781 | **+0.5799** | **no** | 0.0805 |
+| P1 frozen (ehzawad_fastconformer) | 19.6723 | 5.7915 | −2.5562 | yes | 1.0000 |
+| P4 step_88000 (event one, §8w.14) | 17.5441 | 5.2704 | — | — | — |
+
+Both baseline re-score gates passed (P2 16.5362 vs 16.54; P1 19.6723 vs 19.672). Event registry: `571569fe…`, status
+completed, supersedes `f7b2b0e7…` (event one); event-one bundle `final_test_EARLY_step88000/` intact.
+
+**§6 verdict: `meets_success` FALSE, `meets_strong` FALSE.** The registered bar was WER < 16.54 with the 95 % CI of
+(P4 − P2) entirely below 0. P4 is 0.58 pp behind P2 and the interval does not clear. **Against Phase 1 the lineage claim
+holds cleanly:** −2.56 pp with the interval clear. From event one to event two the sealed WER improved 0.43 pp and the gap to
+P2 narrowed from 1.01 to 0.58 pp; the anneal delivered on FLEURS roughly what it delivered on the dev panels, and it was not
+enough. This is disclosed as-is per §8w.15 ("whatever we get") and §8w.14 (two events on the card).
+
+### 8w.19 One-shot panel incident — two panels spent, artefacts lost; the tool's fifth latent defect class; the fact-based audit log; five panels decoded — 2026-09-15 08:12–09:00 UTC
+
+**What happened (from the preserved crash log `experiments/p4/incidents/oneshot_panels_crash_2026-09-15T0812Z.log` and the
+manifests, not inferred).** Step 6 of the runbook was launched as one invocation over seven one-shot panels in the order holdout,
+vaani_validation, vaani_test, spring_r1_validation, spring_r1_test, spring_r2_validation, spring_r2_test, on the qualified
+selection (`step_116000.nemo`, sha `bea300ce…`). The gate authorised and wrote ONE audit line naming all seven panels before any
+decode. `holdout` (6,767 rows) decoded, scored and printed (log line 161) — frozen WER **15.01 %**, nemo-internal 17.77 %,
+p4-surface 14.99 %, 0 empty, 127.8 s — but its hypotheses, per-source breakdown and CER were never written because the tool
+wrote its JSON only after the last panel. `vaani_validation` (10,105 rows) decoded and scored in process, then the tool's own
+POST-decode assertion fired (log lines 164–173): `data4/vaani/manifest_validation.jsonl` has three `audio_filepath` collisions
+(10,102 unique paths; measured on the manifest — each colliding pair has different durations and different texts, so one row
+of each pair carries a reference that cannot match the wav on disk; the ingest wrote two source utterances to one output name).
+Nothing of vaani_validation was printed or written; the process died with the five remaining panels undecoded. Net: **holdout
+— exposure spent, rounded aggregates survive on stdout, artefacts lost; vaani_validation — exposure spent, nothing survives;
+five panels untouched; the audit line over-claimed seven decodes.**
+
+**Defect class.** The same reader/writer asymmetry as §8w.14/16 in a new form: an integrity check placed AFTER the irreversible
+step it should have guarded, an audit record of INTENT written in a form that read as FACT, and no per-panel persistence. The
+suite (217 checks) passed through all of it because no test decoded a colliding manifest end-to-end. Also found while fixing:
+§2's "manifest hashes recorded at freeze" had no writer — nothing had recorded the one-shot manifest hashes.
+
+**Fixed in `tools/p4/p4_panel_eval.py` (first pass, then hardened per council AB 2026-09-15 08:36 UTC); rehearsed on the GPU
+with a synthetic colliding manifest of a NON-protected panel (D, 6 rows); negative tests on the real gate (repeat of a spent
+panel, protected manifest under an alias, one-shot without outputs) all ABORT before any GPU work; suite 80 + 155 green; the
+real audit log's sha proven unchanged across the suite and every negative test:**
+1. `preflight_panels` reads and checks every manifest BEFORE the model is loaded and BEFORE the audit record: preflight detects
+   the specified defects (missing file, registered row count, frozen manifest hash, path collisions). For a protected panel a
+   row-count or hash mismatch is an ABORT; a missing manifest is an ABORT (a SKIP after the audit record would have been a
+   false exposure line). Collisions are reported and handled, not aborted on — they are a manifest defect, not an identity change.
+2. Collisions are scored both ways: each colliding panel is scored on all registered rows AND with every member of every
+   colliding pair excluded (`results[p]["excluding_collisions"]`); `--save-hyps` keeps the first hypothesis per path (the
+   paired-bootstrap tool aligns by key) and every hypothesis for a colliding path is kept under `panels[p]["collisions"]`.
+3. Persistence: a one-shot run REQUIRES `--out` and `--save-hyps`, both new, both directories probed writable, before the gate.
+   Row-indexed raw hypotheses are written atomically (fsync file + directory) to `<out>.partial.json` immediately after each
+   panel's decode and BEFORE scoring; the scored panel replaces them; the partial file is removed only after the complete report
+   is written.
+4. Audit log `protected_panel_decodes.jsonl`, typed records: `requested` (intent, written by the gate, carries run_id, checkpoint
+   sha, prior counts and any repeat approval by hash), `started` (written immediately BEFORE a protected panel's audio is
+   decoded — from that line on the exposure is spent), `decoded` (fact, written after decode+score, resolves the `started` of the
+   same run_id), `correction` (the only record that can lower a count). `prior_decode_counts` counts `decoded` + unresolved
+   `started` + legacy kind-less lines; an unresolved `started` BLOCKS every later protected decode until a correction reconciles
+   it. A malformed line fails closed. One protected decode per box at a time (`flock` on `protected_panel_decodes.lock`).
+5. A correction must name its target line by sha256, partition the target's panels exhaustively and disjointly into `decoded` /
+   `not_decoded`, carry evidence `{path, sha256}` that exists and hashes as stated, carry `approved_by` and `reason`; it may
+   never target a `decoded` fact; two active corrections for one target fail closed; a legacy correction without a target hash
+   must be superseded (`supersedes_correction_sha256`) or the tool refuses to count at all.
+6. A prior decode of a one-shot panel is an ABORT (council AA had called the old warning the weaker gate). The only override is
+   `P4_PROTECTED_REPEAT_APPROVAL=<path>` naming an approval record `{panels, ckpt_sha256, max_decodes_per_panel, reason,
+   approved_by, utc, spec}`; the gate checks the requested panels, the checkpoint and the count against it and records the
+   file's sha in the `requested` record.
+7. A registered one-shot manifest passed under another panel's name (`--manifest D=<vaani manifest>`) is refused outright, so a
+   fact record can only ever be written under the registered name.
+8. Frozen one-shot manifest hashes are pinned in the tool (`FROZEN_ONE_SHOT_MANIFEST_SHA256`, seven entries, from the files as
+   first decoded; mtimes 2026-08-29 / 2026-09-06, unchanged since) and enforced in preflight.
+9. `test_protected_panels` was redirecting the audit path on the package module while calling a FRESH module instance whose
+   paths were real — with the real event + qualified selection present, its "refused" cases would have authorised and written a
+   real line. Every path the gate reads or writes is now redirected on the instance under test. (Also fixed: the gate-test child
+   flushed stdout but not stderr before `os._exit`, so `stop_rejects_an_unknown_ending_class` failed on an empty capture.)
+
+**Audit-log reconciliation (append-only; nothing deleted).** Line 2 (08:24 UTC): first correction for the 08:12:27Z line.
+Line 9 (08:45 UTC): the hash-bound correction the hardened parser requires, superseding line 2 — target = sha256 of line 1,
+decoded = [holdout, vaani_validation], not_decoded = the five, evidence = the crash log by sha, approved_by = the executor under
+the owner's standing rule that bugs are fixed and reported (the owner countersigns here or rejects it). Counts after
+reconciliation: holdout 1, vaani_validation 1, and — after the decode below — each of the five 1; no unresolved starts.
+
+**The five untouched panels** (prior count 0 — legitimate first decodes, authorised by the runbook) were LAUNCHED at 08:26 UTC
+in one invocation with the first-pass tool and COMPLETED at 08:40 UTC (`decoded` records 08:29–08:40; partial file removed
+after the complete report). `experiments/p4/eval/oneshot_panels_step116000.json` + `_hyps.json`, checkpoint sha `bea300ce…`,
+manifest hashes = the frozen ones, no collisions in any of the five, batch 32, peak reserved ≤ 3.4 GiB:
+
+| panel (SPEC §2 role) | rows | WER frozen | CER frozen | empty | wall |
+|---|---:|---:|---:|---:|---:|
+| vaani_test (Vaani official test, protected, never trained on) | 12,695 | **24.767 %** | 7.945 % | 0 | 153 s |
+| spring_r1_validation (SPRING-INX R1 dev; SPRING EXCLUDED from training, G0.9a) | 15,055 | **38.916 %** | 22.359 % | 12 | 287 s |
+| spring_r1_test | 1,879 | **39.221 %** | 22.831 % | 0 | 36 s |
+| spring_r2_validation | 10,936 | **39.477 %** | 22.667 % | 12 | 290 s |
+| spring_r2_test | 1,872 | **38.495 %** | 21.712 % | 3 | 35 s |
+
+Reading, from the stored hypotheses only (`oneshot_panels_step116000_codeswitch_diagnostic.json`; no new decode): the three WER
+surfaces coincide to five digits on all five panels because these references carry no punctuation and no digits. SPRING is
+code-switch-heavy — 48–50 % of rows contain Latin-script words, 7–8 % of reference words are Latin — and this model's 1,024-piece
+Bengali SentencePiece emits no Latin at all (0 of 1,879 hypotheses on spring_r1_test), so every such word is an error on every
+surface: WER on Latin-free rows is 33.8 / 34.4 / 34.6 / 35.0 % vs 42.9 / 42.7 / 43.6 / 41.4 % on rows with Latin. The Latin-free
+number is still 2× the holdout WER: SPRING is vendor-collected conversational speech the model never saw, and that is the
+honest out-of-domain reading. The §2 empty-output guard (≤0.1 %, registered for the selection panels) is reported per panel
+here for information: spring_r2_validation 0.110 % and spring_r2_test 0.160 % exceed it; the other three do not.
+
+**Open decision (council AB recommends A, with an explicit owner ruling): holdout and vaani_validation.** Their exposure is spent
+and their artefacts are lost. (A) recover both once under a scoped approval record (`P4_PROTECTED_REPEAT_APPROVAL`,
+max_decodes_per_panel 2, checkpoint-bound) — "recovery repeat; no selection or tuning permitted", separate output files, holdout's
+stdout figures preserved and any discrepancy disclosed without choosing the more favourable one; (B) never re-decode: report
+holdout from the stdout aggregates and vaani_validation as not reported; (C) recover vaani_validation only. Council AB: whether
+anyone saw the first number does not erase exposure, so C has little methodological advantage over A; B is the fallback if the
+owner declines. **Nothing is re-decoded before the owner rules.** The Vaani validation manifest is preserved unchanged as the
+registered panel (frozen hash); the ingest collision is to be fixed in a NEW manifest version with its own hashes, never as a
+replacement of this one.
+
+**Disclosure carried to the supplement:** the original exposures, the lost artefacts, the recovery approval and identities if any,
+the collision denominators (10,105 / 10,099), and first-vs-recovery provenance. The card keeps its two-FLEURS-event line and links.
+
+### 8w.20 Owner rulings, recovery decode, licences, publication — 2026-09-15 10:25–10:40 UTC
+
+**Owner rulings (decision picker, 2026-09-15 ~10:25 UTC), each the council-recommended option:** (1) recovery of holdout
+and vaani_validation — **A, recover both once**; (2) weights licence — **CC-BY-SA-4.0**; (3) pipeline repo — **reuse
+`ehzawad/bengali-fastconformer-phase4`** (private; its code LICENSE moved CC-BY-NC-SA-4.0 → Apache-2.0: the repo holds no
+upstream-retained code, and CC licences are not meant for software); (4) card — **minimal card + linked public supplement**;
+(5) MaCro — **owner verified on the Kaggle rules page, logged in: "DATA ACCESS AND USE: CC-BY-4.0", commercial use permitted**
+(`licences/MACRO_BengaliAI_licence_OPEN_ITEM.md` closed; the verbatim rules text is not archived — the record is the owner's
+statement); (6) HF — **new public repo, `ehzawad/stt_bn_fastconformer_ctc`** (created 10:38 UTC as `…_ctc_v2`; at 11:05 UTC the owner ruled the `v2` suffix out — "who would know where version one is" — and the repo, the weights file and every reference were renamed; HF redirects the old id; weights sha unchanged).
+
+**Recovery decode (§8w.19 option A).** Approval record `PROTECTED_REPEAT_APPROVAL_2026-09-15.json` (panels holdout +
+vaani_validation, checkpoint `bea300ce…`, max 2 decodes per panel, reason, approved_by = owner via the picker), named by
+`P4_PROTECTED_REPEAT_APPROVAL`; gate wrote `requested` (approval by sha) → `started`/`decoded` per panel. Run 10:30–10:36 UTC,
+run_id `31f7e3d4…`, outputs `eval/oneshot_panels_step116000_recovery.json` (+ `_hyps.json`), separate from the five-panel file.
+
+| panel | rows | WER frozen | CER | nemo-internal | first decode (08:12Z) |
+|---|---:|---:|---:|---:|---|
+| holdout | 6,767 | **15.008 %** | 4.469 % | 17.765 % | 15.01 / 17.77 / 14.99 printed — **reproduced exactly** (131.3 s vs 127.8 s) |
+| vaani_validation | 10,105 | **26.220 %** | 8.570 % | 26.220 % | never observed; 26.193 % on the 10,099 rows excluding the 3 colliding pairs |
+
+Holdout per source: commonvoice 10.81, indicvoices 15.98, kathbath 11.77, openslr53 14.88, subakko 15.55. Audit-log counts
+after recovery: holdout 2, vaani_validation 2, the five 1 each; no unresolved starts; 14 records.
+
+**Publication.** Phase 1 `ehzawad/stt_bn_fastconformer`: README re-licensed CC-BY-NC-SA-4.0 → CC-BY-SA-4.0 with a dated
+change notice and the author name corrected to Emrul Zawad; weights untouched (LFS sha `61362a36…` before and after; repo
+`96dc7b83` → `19c85f86`). Phase 4: **`ehzawad/stt_bn_fastconformer_ctc`** created public, commit `6b0d1aa8`, files
+`stt_bn_fastconformer_ctc.nemo` (LFS sha256 `bea300ce4f1f1df1…` = the sealed export), `README.md` (minimal card: output,
+dataset table, FLEURS both events, licence), `SUPPLEMENT.md` (credits and notices, dev panels vs Phase 1, seven one-shot panels
+with the collision denominators and the exposure/recovery record, the reproducibility-run declaration, limitations).
+
+**Seven-model reproducibility run** launched 10:39 UTC from `bench_assets/run_all_p4_repro.sh` (A5000 by UUID, labels
+suffixed `_p4repro`, published `outputs/<label>` untouched, no pattern kills, prospective note as the first log line): a
+THIRD FLEURS exposure for this lineage, declared before the first decode; results go to the benchmark repo when complete.
+
+**Corrections to the workflow drafts, for the record:** the drafted completion report's corpus table (nine buckets,
+1,958.73 h, with MaDASR and Vaani) was wrong — the run's manifest (`arm_O+macro_filtered.nvme.jsonl`, sha `00d6506b…`) has
+seven sources, 1,084,696 rows, 1,692.36 h; and its one-shot list (FLEURS validation, MaDASR dev) named panels that are not
+one-shots. The card and supplement were written from the manifest, `val.jsonl`, `baseline_p1.json`, `final_test.json` and the
+eval outputs, not from the drafts.
+
+**Rename 11:05 UTC.** `ehzawad/stt_bn_fastconformer_ctc_v2` → `ehzawad/stt_bn_fastconformer_ctc`, file `stt_bn_fastconformer_ctc.nemo` (LFS sha `bea300ce…`, commit `97b8f782`); the phase4 repo, the release card/supplement copies, the reproducibility runner's label and the benchmark output directory follow. The runner copy in `bench_assets/` is edited only after its run finishes (bash reads a running script incrementally).
+
+### 8w.21 Multi-dataset comparison on official test splits — declared prospectively 2026-09-15 15:40 UTC, before the first decode
+
+**Owner's instruction:** "Are there any good official benchmark to test out all this model? If there is, then do it" and "in a clearly
+table show me the comparison and try to make the fair comparison … after running one model then you run another model and make sure
+any co-tenant doesn't enter into [the] GPU". Council AD (14:13 UTC) reviewed scope and protocol; the owner chose (picker, 15:20 UTC):
+Vaani official test + SPRING-INX R1/R2 official eval as frozen 1,000-utterance subsets **plus Kathbath official test** (downloading
+from the IndicSUPERB object store; not on the Hub), and **re-use of the Phase-4 model's stored one-shot hypotheses** on Vaani/SPRING
+(no repeat decode; latency N/A there).
+
+**Sets (frozen before any model saw them):** `bench_assets/multiset/<set>/eval_manifest.json`, seed 20260915, proportional stratified
+sampling with largest-remainder allocation, seeded shuffle within stratum, per-file sha256 verified by the harness before decoding.
+vaani_test: 1,000 of 12,695 rows, 29 (state, district) strata, 1.26 h, 10,082 ref words. spring_r1_test: 1,000 of 1,879, strata
+latin / no_latin, 2.545 h, 19,706 words. spring_r2_test: 1,000 of 1,872, 2.607 h, 20,353 words. Kathbath test (known / unknown
+speakers) to be registered here when its manifest is built.
+
+**Harness:** `bench_assets/bench_run_set.py` — imports bench_run.py's backends and `transcribe_clip` unchanged (same audio path as the
+FLEURS benchmark), adds only manifest/out-root/stop-file plumbing, refuses to start with a foreign compute process on the card,
+refuses to overwrite a completed run. Runner `run_multiset.sh`: one model at a time on the A5000 by UUID; a watcher polls every 15 s,
+logs every foreign process to `cotenant_<label>.log` and requests a cooperative STOP (harness exits 3 after the clip in hand; nothing
+is ever signalled); stopped runs are re-run only by hand. Smoke-tested: 3-clip decode, STOP path (exit 3, n=0), overwrite refusal.
+
+**Contamination status carried into the table (council AD):** Vaani / SPRING — no model's card lists them (N = no declared source
+training; not proof of zero overlap). FLEURS test — sibling-split training (train) for ours and hishab-CL; third exposure for Phase 4.
+Kathbath test — sibling training for ours (train) and hishab-CL (train+validation); eligible, not certified clean. hishab-fastconformer,
+Whisper-medium and wav2vec2: provenance insufficient (U). Phase 4's Vaani/SPRING rows come from the gated one-shot decodes of 08:26 UTC
+(batch 32 in `p4_panel_eval.py`, vs batch-1 staged PCM16 in the harness — accuracy-protocol difference disclosed; timing N/A).
+
+**Reporting:** corpus WER/CER per set on the benchmark scorer (NFC + punctuation stripping), utterance and sentence-clustered
+bootstraps; SPRING also on the "no Latin-script reference characters" subset for every model, with denominators; a per-cell training-
+status flag. A comparison on official test splits, not an official leaderboard result.
+
+**8w.21 addendum, 15:55 UTC — Kathbath official test registered.** Downloaded from the IndicSUPERB object store (clean
+`testkn_audio.tar` 3.59 GB, `testunk_audio.tar` 2.21 GB, `transcripts_n2w.tar`; CC0 per the IndicSUPERB page), Bengali
+test_known 2,806 utt / 5.01 h and test (unknown speakers) 1,783 utt / 3.23 h, m4a → 16 kHz mono PCM16 (ffmpeg, ≤4 procs,
+nice/ionice). Frozen subsets `multiset/kathbath_test_known` and `multiset/kathbath_test_unknown`, 1,000 utt each, stratified by
+speaker gender, seed 20260915. All seven models run here, **including Phase 4 — its lineage's first decode of Kathbath test**
+(not a §2 one-shot panel; Kathbath train was in its corpus and Kathbath validation is panel K, so this is sibling-split
+exposure, disclosed as such). Runner `run_multiset_kathbath.sh`, queued behind `run_multiset.sh` so our two runs never share
+the card.
+
+### 8w.22 Multi-dataset comparison — results and closure — 2026-09-15 18:19 UTC
+
+**Owner rulings during the run:** the Qwen3 adapter was dropped ("ignore Qwen", 17:20 UTC; ~10 s/clip at batch 1 — its Vaani leg was
+stopped by pid at ~250/1000 and discarded, the SPRING legs never started). Runners and the decode were stopped by verified pid; the
+first attempt used a command-line pattern that matched the executor's own shell (a rule violation — no foreign or wrong process was
+touched; recorded so it is not repeated). 27 runs completed (5 sets × 5 fresh models + Phase 4 ×2 on Kathbath); Phase 4 on Vaani/
+SPRING from stored one-shot hypotheses. **No foreign process appeared on the A5000 during any run** (no `cotenant_*.log` written).
+
+**WER on the frozen 1,000-utterance official-test subsets (benchmark scorer, reference-clustered 95 % CI):**
+
+| model | Vaani test | SPRING R1 | SPRING R2 | Kathbath known | Kathbath unknown |
+|---|---:|---:|---:|---:|---:|
+| Phase 4 `stt_bn_fastconformer_ctc` | **24.66** | **39.24** | **38.41** | 13.38 | 13.43 |
+| Whisper Medium (tugstugi) | 26.25 | 39.96 | 39.70 | 9.69 | 9.79 |
+| Phase 1 `stt_bn_fastconformer` | 26.56 | 41.30 | 40.57 | 17.14 | 16.96 |
+| hishab conformer-large | 33.10 | 42.46 | 42.24 | **9.33** | **8.79** |
+| hishab fastconformer | 28.71 | 46.47 | 45.08 | 25.81 | 29.87 |
+| wav2vec2 (qdv206) | 31.26 | 47.28 | 47.33 | 19.08 | 18.80 |
+
+SPRING Latin-free / Latin rows: Phase 4 35.39 / 41.85 (R1), 35.14 / 41.12 (R2); Whisper 35.92 / 42.71, 36.67 / 42.22. Training-status
+flags per council AD carried into the public table (N / S / U). Published: `bengali-asr-benchmark` README fourth report, main
+`435e5f2`, with raw predictions, manifests, harness, runners and scorer. Phase 4's Kathbath-test decodes are its lineage's first
+(sibling-split exposure: Kathbath train in the corpus, validation = panel K). Reading: on the two corpora nobody trained on the
+FLEURS ranking inverts (hishab-CL last on Vaani); Phase 4 leads Vaani and SPRING and gains over Phase 1 on every set; on Kathbath
+hishab-CL (trained on its validation split) and Whisper (provenance unknown) lead, Phase 4 third.

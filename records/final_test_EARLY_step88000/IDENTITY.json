@@ -1,0 +1,51 @@
+{
+ "event_id": "f7b2b0e77f3b4f7f8008378a94a0484d",
+ "mode": "FINAL_TEST",
+ "spec": "experiments/p4/SPEC.md §6 — one decode of the sealed FLEURS test",
+ "checkpoint": {
+  "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/p4/runs/N_O+macro_filtered_H120k/export/step_88000.nemo",
+  "sha256": "a73e658540eecfedfcdf888cc27594a30812af373c6138863f5fd19384ff2eb7"
+ },
+ "decoder": {
+  "strategy": "greedy_ctc",
+  "search": "none",
+  "batch_size": 1,
+  "segment_seconds": 25,
+  "staging": "bench_assets/asr_core.py PCM16 staged WAV",
+  "asr_core_sha256": "f894ef44ae4834fc80878f8b206e65e8321a0014807559494af0eb8880638a18"
+ },
+ "scorer": {
+  "surface": "tools/p3_common.frozen_norm",
+  "corpus_wer": "sum(edits)/sum(reference words)",
+  "p3_common_sha256": "c9db084ef0ab287453ef3b83f5cb92d7b06dffb84ef77f5e06670a49e96ac855",
+  "bench_score": {
+   "path": "/mnt/sdb/arafat/ehz/llm/bench_assets/bench_score.py",
+   "sha256": "620e42275889f41a575aa1841d130a28ed732697c74de2c7c29140435b3a08f5"
+  },
+  "bootstrap": {
+   "draws": 20000,
+   "seed": 20260905,
+   "tool_sha256": "8cf1b0dd7363ab39369c0c3e31218af67b97c735a7af6919178f5d356ca0b66c"
+  }
+ },
+ "panels": {
+  "test_manifest": {
+   "path": "/mnt/sdb/arafat/ehz/llm/bench_assets/eval_manifest.json",
+   "sha256": "27e5649cd8577a85b857e3b688e667742c41df99a9f0226732f2cab5ce8bd462",
+   "rows": 920,
+   "rows_expected": 920
+  },
+  "phase2_frozen": {
+   "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-benchmark/outputs_a5000/qwen3_adapter/predictions.json",
+   "sha256": "9c326f6f6014dba08fec7282830290db1e7b31171ae6986506383a24935845c8",
+   "rows": 920,
+   "rows_expected": 920
+  },
+  "phase1_frozen": {
+   "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-benchmark/outputs_a5000/ehzawad_fastconformer/predictions.json",
+   "sha256": "d393e0cd83aaafcec84cb9c0e10910fa89590a76de022ac599044762cdf6305e",
+   "rows": 920,
+   "rows_expected": 920
+  }
+ }
+}

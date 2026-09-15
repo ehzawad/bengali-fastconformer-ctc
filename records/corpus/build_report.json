@@ -1,0 +1,547 @@
+{
+ "seed": 20260905,
+ "removed": {
+  "fleurs_train": {
+   "fingerprint_match_to_panel": 30,
+   "latin_letters": 71,
+   "math_expression": 20,
+   "symbol_outside_bengali_digits": 7,
+   "protected_sentence": 237
+  },
+  "openslr53": {
+   "math_expression": 102,
+   "cps": 3305,
+   "latin_letters": 62,
+   "text_near_duplicate_of_panel": 85,
+   "fingerprint_match_to_panel": 422,
+   "protected_sentence": 29,
+   "symbol_outside_bengali_digits": 1,
+   "max_per_text": 435
+  },
+  "subakko": {
+   "fingerprint_match_to_panel": 291,
+   "math_expression": 87,
+   "latin_letters": 252,
+   "text_near_duplicate_of_panel": 472,
+   "symbol_outside_bengali_digits": 364,
+   "cps": 12,
+   "protected_sentence": 6
+  },
+  "kathbath": {
+   "fingerprint_match_to_panel": 248,
+   "text_near_duplicate_of_panel": 26,
+   "protected_sentence": 1
+  },
+  "commonvoice": {
+   "fingerprint_match_to_panel": 93,
+   "text_near_duplicate_of_panel": 11,
+   "cps": 8,
+   "math_expression": 30,
+   "protected_sentence": 1,
+   "latin_letters": 1
+  },
+  "indicvoices": {
+   "fingerprint_match_to_panel": 1441,
+   "protected_sentence": 476,
+   "text_near_duplicate_of_panel": 249,
+   "cps": 246,
+   "feasibility_margin": 36,
+   "max_per_text": 2499
+  },
+  "macro_filtered": {
+   "protected_sentence": 2789,
+   "fingerprint_match_to_panel": 1605,
+   "feasibility_margin": 891,
+   "feasibility_infeasible": 358,
+   "text_near_duplicate_of_panel": 199,
+   "pcm_duplicate_of_kept_row": 1042,
+   "max_per_text": 313
+  },
+  "macro_validated": {
+   "protected_sentence": 2703,
+   "text_near_duplicate_of_panel": 11,
+   "feasibility_margin": 2,
+   "pcm_duplicate_of_kept_row": 9174
+  },
+  "madasr": {
+   "protected_sentence": 50723,
+   "fingerprint_match_to_panel": 840,
+   "text_near_duplicate_of_panel": 1352,
+   "feasibility_unk": 66,
+   "feasibility_margin": 34,
+   "feasibility_infeasible": 2,
+   "max_per_text": 497464
+  },
+  "vaani": {
+   "protected_sentence": 852,
+   "symbol_outside_bengali_digits": 11,
+   "latin_letters": 6,
+   "feasibility_infeasible": 1,
+   "feasibility_margin": 4,
+   "fingerprint_match_to_panel": 1,
+   "pcm_component_conflicting_reference": 2,
+   "max_per_text": 37
+  },
+  "spring_inx": {
+   "latin_letters": 108346,
+   "symbol_outside_bengali_digits": 2924,
+   "protected_sentence": 12534,
+   "feasibility_unk": 1,
+   "feasibility_margin": 3,
+   "feasibility_infeasible": 3
+  }
+ },
+ "feasibility": {
+  "fleurs_train": {
+   "rows_in": 2019,
+   "rejected": 0,
+   "fraction": 0.0,
+   "STOP": false
+  },
+  "openslr53": {
+   "rows_in": 166585,
+   "rejected": 0,
+   "fraction": 0.0,
+   "STOP": false
+  },
+  "subakko": {
+   "rows_in": 35284,
+   "rejected": 0,
+   "fraction": 0.0,
+   "STOP": false
+  },
+  "kathbath": {
+   "rows_in": 46240,
+   "rejected": 0,
+   "fraction": 0.0,
+   "STOP": false
+  },
+  "commonvoice": {
+   "rows_in": 24856,
+   "rejected": 0,
+   "fraction": 0.0,
+   "STOP": false
+  },
+  "indicvoices": {
+   "rows_in": 277948,
+   "rejected": 36,
+   "fraction": 0.00013,
+   "STOP": false
+  },
+  "macro_filtered": {
+   "rows_in": 550617,
+   "rejected": 1249,
+   "fraction": 0.00227,
+   "STOP": false
+  },
+  "macro_validated": {
+   "rows_in": 29462,
+   "rejected": 2,
+   "fraction": 7e-05,
+   "STOP": false
+  },
+  "madasr": {
+   "rows_in": 645722,
+   "rejected": 102,
+   "fraction": 0.00016,
+   "STOP": false
+  },
+  "vaani": {
+   "rows_in": 86861,
+   "rejected": 5,
+   "fraction": 6e-05,
+   "STOP": false
+  },
+  "spring_inx": {
+   "rows_in": 240941,
+   "rejected": 7,
+   "fraction": 3e-05,
+   "STOP": false
+  }
+ },
+ "arms": {
+  "O": {
+   "rows": 541276,
+   "hours": 965.88,
+   "by_source": {
+    "openslr53": {
+     "rows": 162144,
+     "hours": 158.96,
+     "share": 0.1646
+    },
+    "indicvoices": {
+     "rows": 273001,
+     "hours": 574.37,
+     "share": 0.5947
+    },
+    "kathbath": {
+     "rows": 45965,
+     "hours": 81.46,
+     "share": 0.0843
+    },
+    "commonvoice": {
+     "rows": 24712,
+     "hours": 39.46,
+     "share": 0.0409
+    },
+    "subakko": {
+     "rows": 33800,
+     "hours": 105.81,
+     "share": 0.1095
+    },
+    "fleurs_train": {
+     "rows": 1654,
+     "hours": 5.83,
+     "share": 0.006
+    }
+   }
+  },
+  "O+macro_filtered": {
+   "rows": 1084696,
+   "hours": 1692.36,
+   "by_source": {
+    "macro_filtered": {
+     "rows": 543420,
+     "hours": 726.47,
+     "share": 0.4293
+    },
+    "openslr53": {
+     "rows": 162144,
+     "hours": 158.96,
+     "share": 0.0939
+    },
+    "indicvoices": {
+     "rows": 273001,
+     "hours": 574.37,
+     "share": 0.3394
+    },
+    "kathbath": {
+     "rows": 45965,
+     "hours": 81.46,
+     "share": 0.0481
+    },
+    "commonvoice": {
+     "rows": 24712,
+     "hours": 39.46,
+     "share": 0.0233
+    },
+    "subakko": {
+     "rows": 33800,
+     "hours": 105.81,
+     "share": 0.0625
+    },
+    "fleurs_train": {
+     "rows": 1654,
+     "hours": 5.83,
+     "share": 0.0034
+    }
+   }
+  },
+  "O+madasr": {
+   "rows": 636517,
+   "hours": 1114.86,
+   "by_source": {
+    "madasr": {
+     "rows": 95241,
+     "hours": 148.97,
+     "share": 0.1336
+    },
+    "openslr53": {
+     "rows": 162144,
+     "hours": 158.96,
+     "share": 0.1426
+    },
+    "indicvoices": {
+     "rows": 273001,
+     "hours": 574.37,
+     "share": 0.5152
+    },
+    "kathbath": {
+     "rows": 45965,
+     "hours": 81.46,
+     "share": 0.0731
+    },
+    "commonvoice": {
+     "rows": 24712,
+     "hours": 39.46,
+     "share": 0.0354
+    },
+    "subakko": {
+     "rows": 33800,
+     "hours": 105.81,
+     "share": 0.0949
+    },
+    "fleurs_train": {
+     "rows": 1654,
+     "hours": 5.83,
+     "share": 0.0052
+    }
+   }
+  },
+  "O+vaani": {
+   "rows": 627223,
+   "hours": 1083.28,
+   "by_source": {
+    "openslr53": {
+     "rows": 162144,
+     "hours": 158.96,
+     "share": 0.1467
+    },
+    "vaani": {
+     "rows": 85947,
+     "hours": 117.4,
+     "share": 0.1084
+    },
+    "indicvoices": {
+     "rows": 273001,
+     "hours": 574.37,
+     "share": 0.5302
+    },
+    "kathbath": {
+     "rows": 45965,
+     "hours": 81.46,
+     "share": 0.0752
+    },
+    "commonvoice": {
+     "rows": 24712,
+     "hours": 39.46,
+     "share": 0.0364
+    },
+    "subakko": {
+     "rows": 33800,
+     "hours": 105.81,
+     "share": 0.0977
+    },
+    "fleurs_train": {
+     "rows": 1654,
+     "hours": 5.83,
+     "share": 0.0054
+    }
+   }
+  },
+  "N": {
+   "rows": 1265884,
+   "hours": 1958.73,
+   "by_source": {
+    "madasr": {
+     "rows": 95241,
+     "hours": 148.97,
+     "share": 0.0761
+    },
+    "macro_filtered": {
+     "rows": 543420,
+     "hours": 726.47,
+     "share": 0.3709
+    },
+    "openslr53": {
+     "rows": 162144,
+     "hours": 158.96,
+     "share": 0.0812
+    },
+    "vaani": {
+     "rows": 85947,
+     "hours": 117.4,
+     "share": 0.0599
+    },
+    "indicvoices": {
+     "rows": 273001,
+     "hours": 574.37,
+     "share": 0.2932
+    },
+    "kathbath": {
+     "rows": 45965,
+     "hours": 81.46,
+     "share": 0.0416
+    },
+    "commonvoice": {
+     "rows": 24712,
+     "hours": 39.46,
+     "share": 0.0201
+    },
+    "subakko": {
+     "rows": 33800,
+     "hours": 105.81,
+     "share": 0.054
+    },
+    "fleurs_train": {
+     "rows": 1654,
+     "hours": 5.83,
+     "share": 0.003
+    }
+   }
+  }
+ },
+ "panels": {
+  "D": {
+   "distinct_sentences": 5168
+  },
+  "holdout": {
+   "distinct_sentences": 6561
+  },
+  "fleurs_test": {
+   "distinct_sentences": 349
+  },
+  "fleurs_validation": {
+   "distinct_sentences": 150
+  },
+  "kathbath_valid": {
+   "distinct_sentences": 2236
+  },
+  "madasr_dev": {
+   "distinct_sentences": 494
+  },
+  "vaani_validation": {
+   "distinct_sentences": 10071
+  },
+  "vaani_test": {
+   "distinct_sentences": 12600
+  },
+  "spring_r1_validation": {
+   "distinct_sentences": 14997
+  },
+  "spring_r1_test": {
+   "distinct_sentences": 1879
+  },
+  "spring_r2_validation": {
+   "distinct_sentences": 10894
+  },
+  "spring_r2_test": {
+   "distinct_sentences": 1872
+  },
+  "madasr_dev(text-only)": {
+   "distinct_sentences": 1179
+  },
+  "M": {
+   "fixed_from": "experiments/p4/corpus/panel_M.indexed_by_fingerprint.jsonl",
+   "rows_in": 1964,
+   "rows": 1829,
+   "removed_historical_fingerprint_exposure": 135,
+   "hours": 3.237,
+   "groups": 1829,
+   "distinct_sentences": 1829
+  }
+ },
+ "historical_train_sentences": 461651,
+ "fingerprint": {
+  "present": true,
+  "generated": "2026-09-06T15:50:20Z",
+  "confirmed": 296,
+  "unresolved": 7937,
+  "train_rows_excluded": 5296,
+  "M_rows_historically_exposed": 135,
+  "thresholds": {
+   "MIN_HITS": 12,
+   "REVIEW_HITS": 12,
+   "min_span_s": 2.0
+  }
+ },
+ "audio_defect_reverification": {
+  "flagged_by_audit": 2019,
+  "rescued_with_signal": 2019,
+  "still_defective": 0
+ },
+ "pcm_hash_table": {
+  "present": true,
+  "hashed_paths": 1882804,
+  "panel_hashes": 15888
+ },
+ "text_candidates": {
+  "present": true,
+  "train_rows_listed": 4415
+ },
+ "g09b": {
+  "macro_filtered": {
+   "ingested_rows": 550617,
+   "defect_rows": 1042,
+   "rate": 0.00189,
+   "max": 0.005,
+   "hash_coverage": 1.0,
+   "verdict": "pass"
+  },
+  "macro_validated": {
+   "ingested_rows": 29462,
+   "defect_rows": 9174,
+   "rate": 0.31138,
+   "max": 0.005,
+   "hash_coverage": 1.0,
+   "verdict": "PANEL_ONLY (owner ruling)"
+  },
+  "madasr": {
+   "ingested_rows": 645722,
+   "defect_rows": 0,
+   "rate": 0.0,
+   "max": 0.005,
+   "hash_coverage": 1.0,
+   "verdict": "pass"
+  },
+  "vaani": {
+   "ingested_rows": 86861,
+   "defect_rows": 2,
+   "rate": 2e-05,
+   "max": 0.005,
+   "hash_coverage": 1.0,
+   "verdict": "pass"
+  },
+  "spring_inx": {
+   "ingested_rows": 240941,
+   "defect_rows": 0,
+   "rate": 0.0,
+   "max": 0.005,
+   "hash_coverage": 0.0,
+   "verdict": "INCOMPLETE_HASHING"
+  }
+ },
+ "g09a": {
+  "macro_filtered": {
+   "incoming_rows": 550617,
+   "script_violation_rows": 0,
+   "rate": 0.0,
+   "max": 0.01,
+   "verdict": "pass"
+  },
+  "macro_validated": {
+   "incoming_rows": 29462,
+   "script_violation_rows": 0,
+   "rate": 0.0,
+   "max": 0.01,
+   "verdict": "pass"
+  },
+  "madasr": {
+   "incoming_rows": 645722,
+   "script_violation_rows": 0,
+   "rate": 0.0,
+   "max": 0.01,
+   "verdict": "pass"
+  },
+  "vaani": {
+   "incoming_rows": 86861,
+   "script_violation_rows": 17,
+   "rate": 0.0002,
+   "max": 0.01,
+   "verdict": "pass"
+  },
+  "spring_inx": {
+   "incoming_rows": 240941,
+   "script_violation_rows": 111270,
+   "rate": 0.46181,
+   "max": 0.01,
+   "verdict": "FAIL"
+  }
+ },
+ "respin_cap": {
+  "per_cell_speakers": 5,
+  "per_sentence_total": 25,
+  "retained_by_dialect": {
+   "D3": 18945,
+   "D1": 18500,
+   "D5": 22844,
+   "D2": 17610,
+   "D4": 17342
+  }
+ },
+ "admission": {
+  "new_hours_beyond_O": 992.85,
+  "min_required": 500,
+  "PASS": true
+ }
+}

@@ -1,0 +1,17 @@
+{
+ "spec": "experiments/p4/SPEC.md §6 — one decode of the sealed FLEURS test",
+ "completed_utc": "2026-09-05T20:15:19Z",
+ "ckpt": "synthetic",
+ "ckpt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+ "wer_frozen_pp": 1.0,
+ "files": {
+  "final_test.json": {
+   "sha256": "9409a0fdb8f739b878a31f2c7d739e73ab583616964e8b4db701cd2784c833bf",
+   "bytes": 126
+  },
+  "resume.jsonl": {
+   "sha256": "923c9fd8363c6698c61aa550c4c5a2dae8df4c79f673d8c46d3b410233f5b1df",
+   "bytes": 2419
+  }
+ }
+}

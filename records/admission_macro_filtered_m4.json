@@ -1,0 +1,55 @@
+{
+ "arm": "experiments/p4/runs/pilot_O+macro_filtered",
+ "control": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/p4/runs/O_A5000",
+ "step": 8000,
+ "draws": 10000,
+ "seed": 20260905,
+ "n_sentence_clusters": 9727,
+ "m": 4,
+ "S_arm_pp": 20.531,
+ "S_control_pp": 21.073,
+ "delta_S_pp": -0.542,
+ "ci95": [
+  -0.736,
+  -0.352
+ ],
+ "simultaneous_upper_pp": -0.306,
+ "per_panel_wer_arm_vs_control": {
+  "D": [
+   20.213,
+   20.319
+  ],
+  "M": [
+   18.027,
+   20.565
+  ],
+  "R": [
+   33.075,
+   32.763
+  ],
+  "K": [
+   14.903,
+   14.928
+  ]
+ },
+ "guards": {
+  "D_vs_control_pp": -0.106,
+  "conversational_vs_control_pp": 0.422,
+  "per_source_vs_control_pp": {
+   "commonvoice": -2.538,
+   "indicvoices": 0.794,
+   "kathbath": -0.286,
+   "openslr53": -0.847,
+   "subakko": -1.066
+  },
+  "empty_rate": 0.00019
+ },
+ "guards_pass": true,
+ "tests": {
+  "delta<=-0.30": true,
+  "ci_upper<0": true,
+  "simultaneous_upper<0": true,
+  "guards": true
+ },
+ "ADMITTED": true
+}

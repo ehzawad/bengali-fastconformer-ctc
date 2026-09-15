@@ -1,0 +1,10 @@
+{"file": "clip_000.wav", "reference": "রেফ 0 শব্দ", "transcript": "রেফ 0 শব্দ", "n_pieces": 1, "forced_cuts": 0, "downmix_note": null, "transcribe_s": 0.01, "end_to_end_s": 0.02, "audio_seconds": 1.0}
+{"file": "clip_001.wav", "reference": "রেফ 1 শব্দ", "transcript": "রেফ 1 শব্দ", "n_pieces": 1, "forced_cuts": 0, "downmix_note": null, "transcribe_s": 0.01, "end_to_end_s": 0.02, "audio_seconds": 1.0}
+{"file": "clip_002.wav", "reference": "রেফ 2 শব্দ", "transcript": "রেফ 2 শব্দ", "n_pieces": 1, "forced_cuts": 0, "downmix_note": null, "transcribe_s": 0.01, "end_to_end_s": 0.02, "audio_seconds": 1.0}
+{"file": "clip_003.wav", "reference": "রেফ 3 শব্দ", "transcript": "রেফ 3 শব্দ", "n_pieces": 1, "forced_cuts": 0, "downmix_note": null, "transcribe_s": 0.01, "end_to_end_s": 0.02, "audio_seconds": 1.0}
+{"file": "clip_004.wav", "reference": "রেফ 4 শব্দ", "transcript": "রেফ 4 শব্দ", "n_pieces": 1, "forced_cuts": 0, "downmix_note": null, "transcribe_s": 0.01, "end_to_end_s": 0.02, "audio_seconds": 1.0}
+{"file": "clip_005.wav", "reference": "রেফ 5 শব্দ", "transcript": "রেফ 5 শব্দ", "n_pieces": 1, "forced_cuts": 0, "downmix_note": null, "transcribe_s": 0.01, "end_to_end_s": 0.02, "audio_seconds": 1.0}
+{"file": "clip_006.wav", "reference": "রেফ 6 শব্দ", "transcript": "রেফ 6 ভুল", "n_pieces": 1, "forced_cuts": 0, "downmix_note": null, "transcribe_s": 2.3292377591133118e-06, "end_to_end_s": 4.902109503746033e-05, "audio_seconds": 1.0}
+{"file": "clip_007.wav", "reference": "রেফ 7 শব্দ", "transcript": "রেফ 7 ভুল", "n_pieces": 1, "forced_cuts": 0, "downmix_note": null, "transcribe_s": 6.148591637611389e-06, "end_to_end_s": 0.00014139432460069656, "audio_seconds": 1.0}
+{"file": "clip_008.wav", "reference": "রেফ 8 শব্দ", "transcript": "রেফ 8 ভুল", "n_pieces": 1, "forced_cuts": 0, "downmix_note": null, "transcribe_s": 4.740431904792786e-06, "end_to_end_s": 0.00013642292469739914, "audio_seconds": 1.0}
+{"file": "clip_009.wav", "reference": "রেফ 9 শব্দ", "transcript": "রেফ 9 ভুল", "n_pieces": 1, "forced_cuts": 0, "downmix_note": null, "transcribe_s": 3.1962990760803223e-06, "end_to_end_s": 0.00010647904127836227, "audio_seconds": 1.0}

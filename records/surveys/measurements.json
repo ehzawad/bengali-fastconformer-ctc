@@ -1,0 +1,84 @@
+{
+  "ben10_text": {
+    "raw_ben10_train": {
+      "rows": 13342,
+      "latin_rows_after_surface": 0,
+      "latin_rate": 0.0,
+      "angle_marker_rows": 6187,
+      "angle_marker_rate": 0.4637235796732124,
+      "empty_rows": 0,
+      "residual_non_bengali_chars": [
+        [
+          "<",
+          11612
+        ],
+        [
+          ">",
+          11605
+        ],
+        [
+          "‍",
+          42
+        ]
+      ],
+      "g0_9a_verdict": "PASS"
+    },
+    "raw_ben10_valid": {
+      "rows": 1666,
+      "latin_rows_after_surface": 0,
+      "latin_rate": 0.0,
+      "angle_marker_rows": 836,
+      "angle_marker_rate": 0.5018007202881153,
+      "empty_rows": 0,
+      "residual_non_bengali_chars": [
+        [
+          "<",
+          1765
+        ],
+        [
+          ">",
+          1764
+        ],
+        [
+          "‍",
+          3
+        ]
+      ],
+      "g0_9a_verdict": "PASS"
+    }
+  },
+  "ben10_duration": {
+    "wav_files": 15036,
+    "total_hours": 73.82193314236112,
+    "mean_s": 17.674844327779997,
+    "median_s": 16.1,
+    "p95_s": 23.516,
+    "max_s": 60.0,
+    "rows_over_23s": 832,
+    "rate_over_23s": 0.05533386538973131,
+    "rows_under_0p5s": 0,
+    "hours_within_band": 64.70524999999999
+  },
+  "spring_script": {
+    "R1": {
+      "clean_rows": 266,
+      "latin_rows": 234,
+      "clean_chars": 19585,
+      "latin_chars": 29038,
+      "sampled_rows": 500,
+      "latin_rate_rows": 0.468,
+      "retained_share_rows": 0.532,
+      "retained_share_chars": 0.402792916932316
+    },
+    "R2": {
+      "clean_rows": 269,
+      "latin_rows": 231,
+      "clean_chars": 27277,
+      "latin_chars": 30425,
+      "sampled_rows": 500,
+      "latin_rate_rows": 0.462,
+      "retained_share_rows": 0.538,
+      "retained_share_chars": 0.4727219160514367
+    }
+  }
+}

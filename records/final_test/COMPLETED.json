@@ -1,0 +1,23 @@
+{
+ "spec": "experiments/p4/SPEC.md §6 — one decode of the sealed FLEURS test",
+ "completed_utc": "2026-09-15T08:10:22Z",
+ "ckpt": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/p4/runs/N_O+macro_filtered_H120k/export/step_116000.nemo",
+ "ckpt_sha256": "bea300ce4f1f1df1fa4707562ddaa7c64db6f01121ef3d64a6333635f3626572",
+ "event_id": "571569fed4524714b376d9791e6d9bd8",
+ "identity_sha256": "53d7d297c8da33049923303fb392e39b6d23b9ea634344ff453f6b73b5d7bf81",
+ "wer_frozen_pp": 17.1162,
+ "files": {
+  "IDENTITY.json": {
+   "sha256": "3896042d25e31cb4fe2c3e2b5832e6b0b9b714244c67861f35f58fac60c55550",
+   "bytes": 1900
+  },
+  "final_test.json": {
+   "sha256": "66cf77a5935739a40edb586329f68088f2dd3154bb298738e64722a69e4803a3",
+   "bytes": 6218
+  },
+  "predictions.jsonl": {
+   "sha256": "af510cee1d3fdb66f7dc0d1ba3ec14ca4952403d024ecaff8949e7c19897e6da",
+   "bytes": 909787
+  }
+ }
+}

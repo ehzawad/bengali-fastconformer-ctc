@@ -51,6 +51,7 @@ data/tokenizer_v1024_corpus/   the 1,024-piece SentencePiece tokenizer
 data/panels/                   the released training pool / panel / holdout as (source, key, text hash)
 data/baselines/                the reference-model panel numbers the guards compare against
 ops/systemd/worker.service     a supervised trainer unit
+records/                       the released run's registered contract, review rounds, audit logs and evaluation bundles
 ```
 
 ## The recipe

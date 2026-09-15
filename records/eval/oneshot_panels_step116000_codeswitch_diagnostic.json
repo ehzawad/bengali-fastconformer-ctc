@@ -1,0 +1,50 @@
+{
+ "note": "diagnostic re-scoring of the STORED hypotheses of oneshot_panels_step116000_hyps.json; no new decode; frozen scorer; 'Latin' = any ASCII letter in the reference",
+ "panels": {
+  "spring_r1_validation": {
+   "n_all": 15055,
+   "wer_all": 0.38916,
+   "n_no_latin": 7755,
+   "wer_no_latin": 0.33795,
+   "n_with_latin": 7300,
+   "wer_with_latin": 0.42897,
+   "latin_ref_words_share": 0.07820856063503566
+  },
+  "spring_r1_test": {
+   "n_all": 1879,
+   "wer_all": 0.39221,
+   "n_no_latin": 938,
+   "wer_no_latin": 0.34369,
+   "n_with_latin": 941,
+   "wer_with_latin": 0.42664,
+   "latin_ref_words_share": 0.08181624045699643
+  },
+  "spring_r2_validation": {
+   "n_all": 10936,
+   "wer_all": 0.39477,
+   "n_no_latin": 5913,
+   "wer_no_latin": 0.34604,
+   "n_with_latin": 5023,
+   "wer_with_latin": 0.4358,
+   "latin_ref_words_share": 0.07209835289282411
+  },
+  "spring_r2_test": {
+   "n_all": 1872,
+   "wer_all": 0.38495,
+   "n_no_latin": 1014,
+   "wer_no_latin": 0.35001,
+   "n_with_latin": 858,
+   "wer_with_latin": 0.41367,
+   "latin_ref_words_share": 0.06850459482038429
+  },
+  "vaani_test": {
+   "n_all": 12695,
+   "wer_all": 0.24767,
+   "n_no_latin": 12694,
+   "wer_no_latin": 0.24755,
+   "n_with_latin": 1,
+   "wer_with_latin": 0.625,
+   "latin_ref_words_share": 1.5603666861712504e-05
+  }
+ }
+}

@@ -1,0 +1,26 @@
+{
+ "macro": {
+  "rows": 1084696,
+  "hours": 1692.36,
+  "new_hours": 726.47,
+  "sha256": "2236036104488e56"
+ },
+ "macro+madasr": {
+  "rows": 1179937,
+  "hours": 1841.33,
+  "new_hours": 875.45,
+  "sha256": "135e014c5c0caccc"
+ },
+ "macro+vaani": {
+  "rows": 1170643,
+  "hours": 1809.76,
+  "new_hours": 843.87,
+  "sha256": "a66b2034df56908c"
+ },
+ "all3": {
+  "rows": 1265884,
+  "hours": 1958.73,
+  "new_hours": 992.85,
+  "sha256": "999157a5a72bebeb"
+ }
+}

@@ -1,0 +1,410 @@
+{
+ "checks": [
+  {
+   "name": "identity_manifest_is_written_before_the_first_prediction",
+   "passed": true,
+   "evidence": "/tmp/p4ft_ident_9avn_ush/IDENTITY.json written, no prediction shard yet"
+  },
+  {
+   "name": "identity_records_ckpt_sha_decoder_scorer_panels_and_event_id",
+   "passed": true,
+   "evidence": "keys=['checkpoint', 'decoder', 'event_id', 'mode', 'panels', 'scorer', 'spec']; ckpt sha aaaaaaaa\u2026; panel rows 920"
+  },
+  {
+   "name": "identity_digest_covers_every_frozen_field",
+   "passed": true,
+   "evidence": "{\"checkpoint.sha256\": true, \"decoder.strategy\": true, \"scorer.p3_common_sha256\": true, \"panels.test_manifest.rows\": true, \"event_id\": true}"
+  },
+  {
+   "name": "identity_absent_but_predictions_present_is_refused",
+   "passed": true,
+   "evidence": "ABORT: /tmp/p4ft_unbound_7ty6k7w1/predictions.jsonl holds predictions written before any identity was recorded. They cannot be attributed to a checkpoint and wi"
+  },
+  {
+   "name": "identity_missing_manifest_refuses_a_resume",
+   "passed": true,
+   "evidence": "ABORT: /tmp/p4ft_empty_zvcwq3ol/IDENTITY.json does not exist. The identity of this evaluation event must be recorded before the first prediction; a directory ho"
+  },
+  {
+   "name": "resume_with_a_matching_identity_is_accepted",
+   "passed": true,
+   "evidence": "second bind_identity of the identical identity returned the record"
+  },
+  {
+   "name": "resume_with_a_different_checkpoint_sha_is_refused",
+   "passed": true,
+   "evidence": "ABORT: this evaluation was authorised with a different identity. SPEC \u00a76 allows ONE decode of the sealed test with ONE selected checkpoint, decoder, scorer and panel set. Mismatch(es): checkpoint.sha2"
+  },
+  {
+   "name": "resume_refusal_names_the_mismatched_field_and_both_values",
+   "passed": true,
+   "evidence": "refusal quotes recorded and current sha256"
+  },
+  {
+   "name": "resume_with_a_different_decoder_is_refused",
+   "passed": true,
+   "evidence": "ABORT: this evaluation was authorised with a different identity. SPEC \u00a76 allows ONE decode of the sealed test with ONE selected checkpoint, "
+  },
+  {
+   "name": "resume_with_a_different_panel_rows_is_refused",
+   "passed": true,
+   "evidence": "ABORT: this evaluation was authorised with a different identity. SPEC \u00a76 allows ONE decode of the sealed test with ONE selected checkpoint, "
+  },
+  {
+   "name": "resume_with_a_different_scorer_is_refused",
+   "passed": true,
+   "evidence": "ABORT: this evaluation was authorised with a different identity. SPEC \u00a76 allows ONE decode of the sealed test with ONE selected checkpoint, "
+  },
+  {
+   "name": "shard_resume_under_the_same_identity_decodes_only_the_remainder",
+   "passed": true,
+   "evidence": "10 rows returned in item order, 4 decoded"
+  },
+  {
+   "name": "shard_rows_carry_the_identity_digest_that_produced_them",
+   "passed": true,
+   "evidence": "all 10 rows stamped b2670445709d\u2026"
+  },
+  {
+   "name": "shard_partial_set_from_another_checkpoint_is_never_reused",
+   "passed": true,
+   "evidence": "ABORT: /tmp/p4ft_mix_gch9q9nw/predictions.jsonl line 1 ('clip_000.wav') was produced under identity 'b2670445709d9d678c2b2a4cb4c721bc8e6b2f81d84d092715cf9bea3735feaf', but this evaluation is identity "
+  },
+  {
+   "name": "shard_refusal_decodes_nothing_and_appends_nothing",
+   "passed": true,
+   "evidence": "shard still holds exactly the 700 rows checkpoint X wrote"
+  },
+  {
+   "name": "shard_rows_without_an_identity_are_refused_by_an_identified_event",
+   "passed": true,
+   "evidence": "ABORT: /tmp/p4ft_legacy_kchiumj1/predictions.jsonl line 1 ('clip_000.wav') was produced under identity None, but this evaluation is identity 'b2670445709d9d678c"
+  },
+  {
+   "name": "event_record_is_minted_outside_the_output_directory",
+   "passed": true,
+   "evidence": "/tmp/p4ft_event_y0_9sxd4/final_test_event.json holds event EVENT0 for /tmp/p4ft_event_y0_9sxd4/bundle1"
+  },
+  {
+   "name": "event_resume_of_the_same_event_and_identity_is_accepted",
+   "passed": true,
+   "evidence": "same directory + same identity re-enters the one event"
+  },
+  {
+   "name": "event_second_event_in_a_fresh_output_directory_is_refused",
+   "passed": true,
+   "evidence": "ABORT: the Phase-4 held decode is a single phase-level event and it is already registered in /tmp/p4ft_event_y0_9sxd4/final_test_event.json (event EVENT0, opened 2026-09-15T08:44:24Z, status open, bundle /tmp/p4ft_event_"
+  },
+  {
+   "name": "event_refusal_does_not_suggest_using_another_directory",
+   "passed": true,
+   "evidence": "refusal states a new --out-dir is not an authorisation"
+  },
+  {
+   "name": "event_refusal_names_the_override_and_decodes_nothing",
+   "passed": true,
+   "evidence": "override is P4_FINAL_TEST_SECOND_EVENT=1 only"
+  },
+  {
+   "name": "event_same_directory_with_a_different_identity_is_refused",
+   "passed": true,
+   "evidence": "ABORT: the Phase-4 held decode is a single phase-level event and it is already registered in /tmp/p4ft_event_y0_9sxd4/final_test_event.json (event EVENT0, opened 2026-09-15T08:44:24Z, status open, bun"
+  },
+  {
+   "name": "event_override_env_is_required_and_supersession_is_recorded",
+   "passed": true,
+   "evidence": "event EVENT1 supersedes EVENT0"
+  },
+  {
+   "name": "event_close_records_completion_on_the_phase_level_record",
+   "passed": true,
+   "evidence": "status=completed wer=15.5"
+  },
+  {
+   "name": "event_close_refuses_an_identity_that_is_not_the_registered_one",
+   "passed": true,
+   "evidence": "ABORT: /tmp/p4ft_event_y0_9sxd4/final_test_event.json no longer holds this event; the decode finished but the event cannot be closed."
+  },
+  {
+   "name": "event_completion_marker_refusal_does_not_suggest_another_directory",
+   "passed": true,
+   "evidence": "/tmp/p4ft_event_y0_9sxd4/bundle3/COMPLETED.json exists \u2014 the sealed FLEURS test has already been decoded for this bundle. SPEC \u00a76: 'No second decode.' A different --out-dir is NOT a way around this an"
+  },
+  {
+   "name": "lock_a_second_evaluator_is_refused_while_the_lock_is_held",
+   "passed": true,
+   "evidence": "ABORT: another Phase-4 held evaluation holds the exclusive lock /tmp/p4ft_lock_27rg04kh/final_test_event.json.lock (pid 3838493 since 2026-09-15T08:44:24Z). SPEC \u00a76 allows one decode of the sealed tes"
+  },
+  {
+   "name": "lock_names_the_holding_pid",
+   "passed": true,
+   "evidence": "holder recorded as pid 3838493"
+  },
+  {
+   "name": "lock_is_released_for_the_next_evaluator",
+   "passed": true,
+   "evidence": "exit 0"
+  },
+  {
+   "name": "wiring_the_event_registry_is_outside_every_bundle_directory",
+   "passed": true,
+   "evidence": "registry /mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/p4/final_test_event.json vs bundle /mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/p4/final_test"
+  },
+  {
+   "name": "wiring_decode_items_requires_an_identity_digest",
+   "passed": true,
+   "evidence": "run() passes the frozen digest into decode_items"
+  },
+  {
+   "name": "wiring_identity_is_bound_before_the_model_is_loaded",
+   "passed": true,
+   "evidence": "bind_identity precedes load_ctc_model in _run_locked"
+  },
+  {
+   "name": "wiring_the_final_run_holds_the_exclusive_lock",
+   "passed": true,
+   "evidence": "run() acquires and releases the lock"
+  },
+  {
+   "name": "wiring_build_identity_records_real_panel_row_counts",
+   "passed": true,
+   "evidence": "dev_corpus rows=5385, ckpt sha ce256c579db9\u2026"
+  },
+  {
+   "name": "wiring_build_identity_never_names_the_sealed_audio_directory",
+   "passed": true,
+   "evidence": "no path under eval_fleurs_bn appears in a dry-run identity"
+  },
+  {
+   "name": "no_resume_over_existing_predictions_is_refused",
+   "passed": true,
+   "evidence": "one clip would have become two rows and the score computed over duplicates; the shard is untouched"
+  },
+  {
+   "name": "an_interrupted_event_can_still_be_resumed",
+   "passed": true,
+   "evidence": "re-entry exists to finish an interrupted decode"
+  },
+  {
+   "name": "a_completed_event_cannot_be_re_entered",
+   "passed": true,
+   "evidence": "--force --no-resume previously allowed a second decode of the sealed set"
+  },
+  {
+   "name": "the_owner_override_still_reopens_a_completed_event",
+   "passed": true,
+   "evidence": "an authorised reopen is possible, and it is explicit"
+  },
+  {
+   "name": "no_qualified_selection_record_refuses_the_sealed_decode",
+   "passed": true,
+   "evidence": "the held decode is authorised by a qualified NORMAL ending, not by --ckpt"
+  },
+  {
+   "name": "a_qualified_normal_ending_authorises_the_selected_checkpoint",
+   "passed": true,
+   "evidence": "the one authorised path"
+  },
+  {
+   "name": "a_terminal_ending_is_refused",
+   "passed": true,
+   "evidence": "Nothing was decoded"
+  },
+  {
+   "name": "a_failed_qualification_is_refused",
+   "passed": true,
+   "evidence": "Nothing was decoded"
+  },
+  {
+   "name": "substituting_another_checkpoint_is_refused",
+   "passed": true,
+   "evidence": "SPEC 8w.2: do not substitute another checkpoint to obtain a pass"
+  },
+  {
+   "name": "ordinary_panels_need_no_authorisation",
+   "passed": true,
+   "evidence": "the selection panels are unaffected"
+  },
+  {
+   "name": "holdout_by_name_is_refused_without_an_authorised_event",
+   "passed": true,
+   "evidence": "SPEC \u00a72: decoded once, after final selection"
+  },
+  {
+   "name": "a_vaani_split_via_manifest_override_is_refused",
+   "passed": true,
+   "evidence": "SPEC \u00a72: decoded once, after final selection"
+  },
+  {
+   "name": "a_spring_split_via_manifest_override_is_refused",
+   "passed": true,
+   "evidence": "SPEC \u00a72: decoded once, after final selection"
+  },
+  {
+   "name": "refusal_writes_no_audit_record",
+   "passed": true,
+   "evidence": "a refused request must not look like a decode"
+  },
+  {
+   "name": "the_gate_is_the_same_record_the_held_decode_mints",
+   "passed": true,
+   "evidence": "'the held decode is authorised' has ONE meaning in Phase 4, not two"
+  },
+  {
+   "name": "authorised_request_writes_an_intent_record",
+   "passed": true,
+   "evidence": "the audit log distinguishes intent from fact"
+  },
+  {
+   "name": "an_intent_record_is_not_a_decode",
+   "passed": true,
+   "evidence": "the 08:12Z line claimed seven decodes; two happened"
+  },
+  {
+   "name": "a_started_record_spends_the_exposure_and_is_unresolved_until_decoded",
+   "passed": true,
+   "evidence": "council AB: a crash between decode and the fact record must not read as never decoded"
+  },
+  {
+   "name": "an_unresolved_start_blocks_even_before_the_repeat_question",
+   "passed": true,
+   "evidence": "reconcile first"
+  },
+  {
+   "name": "the_decoded_record_of_the_same_run_resolves_its_start_and_counts_once",
+   "passed": true,
+   "evidence": "fact record"
+  },
+  {
+   "name": "a_non_protected_panel_writes_no_fact_record",
+   "passed": true,
+   "evidence": "D is not one-shot"
+  },
+  {
+   "name": "a_repeat_decode_of_a_one_shot_is_an_ABORT_not_a_warning",
+   "passed": true,
+   "evidence": "council AA 2026-09-13: 'repeats merely warn' was the weaker gate"
+  },
+  {
+   "name": "an_approval_for_another_checkpoint_is_refused",
+   "passed": true,
+   "evidence": "council AB: an approval is scoped to panels, checkpoint and count"
+  },
+  {
+   "name": "an_approval_not_naming_the_panel_is_refused",
+   "passed": true,
+   "evidence": "council AB: an approval is scoped to panels, checkpoint and count"
+  },
+  {
+   "name": "an_approval_whose_count_is_exhausted_is_refused",
+   "passed": true,
+   "evidence": "council AB: an approval is scoped to panels, checkpoint and count"
+  },
+  {
+   "name": "an_approval_missing_a_field_is_refused",
+   "passed": true,
+   "evidence": "council AB: an approval is scoped to panels, checkpoint and count"
+  },
+  {
+   "name": "a_scoped_approval_authorises_the_repeat_and_is_recorded_by_hash",
+   "passed": true,
+   "evidence": "the override is visible in the record"
+  },
+  {
+   "name": "a_legacy_line_counts_as_decoded_for_every_panel_it_names",
+   "passed": true,
+   "evidence": "conservative by default"
+  },
+  {
+   "name": "a_correction_that_does_not_partition_the_target_is_refused",
+   "passed": true,
+   "evidence": "council AB Q3: a correction cannot launder a repeat"
+  },
+  {
+   "name": "a_correction_with_overlapping_lists_is_refused",
+   "passed": true,
+   "evidence": "council AB Q3: a correction cannot launder a repeat"
+  },
+  {
+   "name": "a_correction_whose_evidence_hash_is_wrong_is_refused",
+   "passed": true,
+   "evidence": "council AB Q3: a correction cannot launder a repeat"
+  },
+  {
+   "name": "a_correction_without_evidence_is_refused",
+   "passed": true,
+   "evidence": "council AB Q3: a correction cannot launder a repeat"
+  },
+  {
+   "name": "a_correction_without_approver_is_refused",
+   "passed": true,
+   "evidence": "council AB Q3: a correction cannot launder a repeat"
+  },
+  {
+   "name": "a_correction_naming_no_target_is_refused",
+   "passed": true,
+   "evidence": "council AB Q3: a correction cannot launder a repeat"
+  },
+  {
+   "name": "a_correction_targeting_an_unknown_line_is_refused",
+   "passed": true,
+   "evidence": "council AB Q3: a correction cannot launder a repeat"
+  },
+  {
+   "name": "a_valid_correction_removes_only_the_panels_it_says_were_not_decoded",
+   "passed": true,
+   "evidence": "the incident record is the only thing that can lower a count, and it names the line it corrects by hash"
+  },
+  {
+   "name": "a_correction_can_never_subtract_a_decoded_fact",
+   "passed": true,
+   "evidence": "facts stand"
+  },
+  {
+   "name": "two_active_corrections_for_one_target_fail_closed",
+   "passed": true,
+   "evidence": "no ambiguity"
+  },
+  {
+   "name": "a_malformed_audit_line_fails_closed",
+   "passed": true,
+   "evidence": "a count that skips lines fails open"
+  },
+  {
+   "name": "a_registered_one_shot_manifest_under_an_alias_is_refused",
+   "passed": true,
+   "evidence": "council AB: facts are keyed by panel name"
+  },
+  {
+   "name": "a_protected_manifest_whose_hash_moved_is_refused_in_preflight",
+   "passed": true,
+   "evidence": "SPEC \u00a72 'manifest hashes recorded at freeze' finally has a writer and a reader"
+  },
+  {
+   "name": "the_frozen_hashes_match_the_manifests_on_disk",
+   "passed": true,
+   "evidence": "frozen 2026-09-15 from the files as first decoded"
+  },
+  {
+   "name": "manifest_collisions_lists_every_row_index_of_a_repeated_path",
+   "passed": true,
+   "evidence": "Vaani validation has three such pairs"
+  },
+  {
+   "name": "preflight_reads_and_flags_before_the_model_is_loaded",
+   "passed": true,
+   "evidence": "zero-cost check"
+  },
+  {
+   "name": "a_missing_one_shot_manifest_is_fatal_in_preflight",
+   "passed": true,
+   "evidence": "a SKIP after the audit record would be a false exposure line"
+  }
+ ],
+ "passed": 80,
+ "failed": 0,
+ "skipped": 0,
+ "code_sha256": {
+  "p4_final_test.py": "c40805e4a3c132401865ce983a0adfaa2793d0d00e7b64ae80272b795b8c781b"
+ }
+}

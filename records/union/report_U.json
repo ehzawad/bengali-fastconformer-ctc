@@ -1,0 +1,511 @@
+{
+ "spec": "experiments/p4/SPEC.md §5, §8k Q3, §8m",
+ "m": 4,
+ "freeze": {
+  "entries_checked": 22,
+  "verified": [
+   "arm_N.jsonl",
+   "arm_N.nvme.jsonl",
+   "arm_O.jsonl",
+   "arm_O+macro_filtered.jsonl",
+   "arm_O+macro_filtered.nvme.jsonl",
+   "arm_O+madasr.jsonl",
+   "arm_O+madasr.nvme.jsonl",
+   "arm_O.nvme.jsonl",
+   "arm_O+vaani.jsonl",
+   "arm_O+vaani.nvme.jsonl",
+   "panel_M.jsonl",
+   "protected_texts.json",
+   "build_report.json",
+   "tools/p4/p4_build_corpus.py",
+   "data/tokenizer_v1024_corpus/tokenizer.model",
+   "data2/val_corpus.json",
+   "data2/holdout_corpus.json",
+   "data4/kathbath/manifest_valid.jsonl",
+   "data4/respin/manifest_madasr_dev.jsonl"
+  ],
+  "drifted_outside_dependency_set": [
+   {
+    "file": "tools/p4/p4_train.py",
+    "status": "DRIFTED",
+    "expected": "322172daa12f0b6170f3cc2b6b1a2e3b4d9754ccc7e163bee767add8de0b4b4a",
+    "actual": "250925621d0ed344ceb99dd31e180a0fd1e900da233933cb55c559741debe2e5"
+   },
+   {
+    "file": "tools/p4/p4_common.py",
+    "status": "DRIFTED",
+    "expected": "a35f9dc316a98065f4495c58cd64f5f6da439271e347b447e0aec635182b4f94",
+    "actual": "0f10d968ab7f4c15df073251ca4f6dc19c5aa583f4b54d53eddf3d543e5acaa7"
+   },
+   {
+    "file": "configs/p4_ctc.yaml",
+    "status": "DRIFTED",
+    "expected": "531a71ad1c1cbbd3c6938f92d2234b80392938477ce148dcd1970ade7573cf02",
+    "actual": "6ab0edc71f6551cf7cbebbfa5fa8a09f9571d7ee14fbe1e0bb317a178215e5bf"
+   }
+  ]
+ },
+ "S_control_pp": 21.073,
+ "S_control_source": "experiments/p4/runs/O_A5000/val.jsonl update=8000 (SPEC §8j)",
+ "arm_verdicts": {
+  "macro_filtered": {
+   "verdict": "ADMITTED",
+   "record": "experiments/p4/admission_macro_filtered_m4.json",
+   "delta_S_pp": -0.542,
+   "simultaneous_upper_pp": -0.306,
+   "S_arm_pp": 20.531
+  },
+  "madasr": {
+   "verdict": "ADMITTED",
+   "record": "experiments/p4/admission_madasr_m4.json",
+   "delta_S_pp": -0.994,
+   "simultaneous_upper_pp": -0.702,
+   "S_arm_pp": 20.08
+  },
+  "vaani": {
+   "verdict": "FAILED",
+   "record": "experiments/p4/admission_vaani_m4.json",
+   "delta_S_pp": -0.074,
+   "simultaneous_upper_pp": 0.154,
+   "S_arm_pp": 20.999
+  }
+ },
+ "passing_buckets": [
+  "macro_filtered",
+  "madasr"
+ ],
+ "cap_audit": {
+  "distinct_frozen_surface_sentences": 889086,
+  "max_retained_recordings_per_sentence": 15,
+  "respin_per_sentence_ceiling": 25,
+  "sentences_at_or_above_ceiling": 0,
+  "sentences_above_global_MAX_PER_TEXT": 135,
+  "of_those_carrying_a_madasr_row": 135,
+  "SUB_UNION_EQUALS_FROM_SCRATCH_BUILD": true
+ },
+ "derivation_proof": {
+  "source_manifest": "experiments/p4/corpus/arm_N.jsonl",
+  "checks": {
+   "arm_O.jsonl": {
+    "rows": 541276,
+    "sha256_of_filter": "e2e0e359cd74c27589af64ce7cbb06ad54d23823d1bb12b6d33093e727acfea0",
+    "sha256_in_FREEZE": "e2e0e359cd74c27589af64ce7cbb06ad54d23823d1bb12b6d33093e727acfea0",
+    "byte_identical": true
+   },
+   "arm_O+macro_filtered.jsonl": {
+    "rows": 1084696,
+    "sha256_of_filter": "2236036104488e56a137aed2f75b828cbd37280ef9a9f6fe0a34282abc8c3f79",
+    "sha256_in_FREEZE": "2236036104488e56a137aed2f75b828cbd37280ef9a9f6fe0a34282abc8c3f79",
+    "byte_identical": true
+   },
+   "arm_O+madasr.jsonl": {
+    "rows": 636517,
+    "sha256_of_filter": "770a804b802c618f5de97d188e19d2d719d7ba791168be02349b4117c4c099b8",
+    "sha256_in_FREEZE": "770a804b802c618f5de97d188e19d2d719d7ba791168be02349b4117c4c099b8",
+    "byte_identical": true
+   },
+   "arm_O+vaani.jsonl": {
+    "rows": 627223,
+    "sha256_of_filter": "f6b84a1fe6bd349da3fa9d932ef634554b0f08d6317edb9db1924e7fcf6686a6",
+    "sha256_in_FREEZE": "f6b84a1fe6bd349da3fa9d932ef634554b0f08d6317edb9db1924e7fcf6686a6",
+    "byte_identical": true
+   },
+   "arm_N.jsonl": {
+    "rows": 1265884,
+    "sha256_of_filter": "999157a5a72bebeb27e0fa93b9e81d6b4cb229d99a21c4077f3b6bcfa21c3f3d",
+    "sha256_in_FREEZE": "999157a5a72bebeb27e0fa93b9e81d6b4cb229d99a21c4077f3b6bcfa21c3f3d",
+    "byte_identical": true
+   }
+  },
+  "all_byte_identical": true
+ },
+ "arm_O": {
+  "rows": 541276,
+  "hours": 965.883,
+  "by_source": {
+   "commonvoice": {
+    "rows": 24712,
+    "hours": 39.458,
+    "share": 0.0409
+   },
+   "fleurs_train": {
+    "rows": 1654,
+    "hours": 5.828,
+    "share": 0.006
+   },
+   "indicvoices": {
+    "rows": 273001,
+    "hours": 574.371,
+    "share": 0.5947
+   },
+   "kathbath": {
+    "rows": 45965,
+    "hours": 81.463,
+    "share": 0.0843
+   },
+   "openslr53": {
+    "rows": 162144,
+    "hours": 158.955,
+    "share": 0.1646
+   },
+   "subakko": {
+    "rows": 33800,
+    "hours": 105.808,
+    "share": 0.1095
+   }
+  },
+  "sha256": "e2e0e359cd74c27589af64ce7cbb06ad54d23823d1bb12b6d33093e727acfea0"
+ },
+ "single_arm_inventory": {
+  "macro_filtered": {
+   "rows": 1084696,
+   "hours": 1692.357,
+   "by_source": {
+    "commonvoice": {
+     "rows": 24712,
+     "hours": 39.458,
+     "share": 0.0233
+    },
+    "fleurs_train": {
+     "rows": 1654,
+     "hours": 5.828,
+     "share": 0.0034
+    },
+    "indicvoices": {
+     "rows": 273001,
+     "hours": 574.371,
+     "share": 0.3394
+    },
+    "kathbath": {
+     "rows": 45965,
+     "hours": 81.463,
+     "share": 0.0481
+    },
+    "macro_filtered": {
+     "rows": 543420,
+     "hours": 726.474,
+     "share": 0.4293
+    },
+    "openslr53": {
+     "rows": 162144,
+     "hours": 158.955,
+     "share": 0.0939
+    },
+    "subakko": {
+     "rows": 33800,
+     "hours": 105.808,
+     "share": 0.0625
+    }
+   },
+   "unique_new_hours": 726.474,
+   "min_required_G0.8": 500.0,
+   "meets_500h_fallback_floor": true,
+   "sha256": "2236036104488e56a137aed2f75b828cbd37280ef9a9f6fe0a34282abc8c3f79"
+  },
+  "madasr": {
+   "rows": 636517,
+   "hours": 1114.856,
+   "by_source": {
+    "commonvoice": {
+     "rows": 24712,
+     "hours": 39.458,
+     "share": 0.0354
+    },
+    "fleurs_train": {
+     "rows": 1654,
+     "hours": 5.828,
+     "share": 0.0052
+    },
+    "indicvoices": {
+     "rows": 273001,
+     "hours": 574.371,
+     "share": 0.5152
+    },
+    "kathbath": {
+     "rows": 45965,
+     "hours": 81.463,
+     "share": 0.0731
+    },
+    "madasr": {
+     "rows": 95241,
+     "hours": 148.973,
+     "share": 0.1336
+    },
+    "openslr53": {
+     "rows": 162144,
+     "hours": 158.955,
+     "share": 0.1426
+    },
+    "subakko": {
+     "rows": 33800,
+     "hours": 105.808,
+     "share": 0.0949
+    }
+   },
+   "unique_new_hours": 148.973,
+   "min_required_G0.8": 500.0,
+   "meets_500h_fallback_floor": false,
+   "sha256": "770a804b802c618f5de97d188e19d2d719d7ba791168be02349b4117c4c099b8"
+  },
+  "vaani": {
+   "rows": 627223,
+   "hours": 1083.282,
+   "by_source": {
+    "commonvoice": {
+     "rows": 24712,
+     "hours": 39.458,
+     "share": 0.0364
+    },
+    "fleurs_train": {
+     "rows": 1654,
+     "hours": 5.828,
+     "share": 0.0054
+    },
+    "indicvoices": {
+     "rows": 273001,
+     "hours": 574.371,
+     "share": 0.5302
+    },
+    "kathbath": {
+     "rows": 45965,
+     "hours": 81.463,
+     "share": 0.0752
+    },
+    "openslr53": {
+     "rows": 162144,
+     "hours": 158.955,
+     "share": 0.1467
+    },
+    "subakko": {
+     "rows": 33800,
+     "hours": 105.808,
+     "share": 0.0977
+    },
+    "vaani": {
+     "rows": 85947,
+     "hours": 117.399,
+     "share": 0.1084
+    }
+   },
+   "unique_new_hours": 117.399,
+   "min_required_G0.8": 500.0,
+   "meets_500h_fallback_floor": false,
+   "sha256": "f6b84a1fe6bd349da3fa9d932ef634554b0f08d6317edb9db1924e7fcf6686a6"
+  }
+ },
+ "threshold_table_all_possible_passing_sets": [
+  {
+   "passing_set": [
+    "macro_filtered"
+   ],
+   "union_equals": "arm_O+macro_filtered",
+   "already_trained_at_8k": true,
+   "S_of_passing_singles_pp": {
+    "macro_filtered": 20.531
+   },
+   "pending_arms": [],
+   "threshold_vs_O_ref_pp": 20.773,
+   "threshold_vs_best_single_pp": 20.731,
+   "BINDING_THRESHOLD_pp": 20.731,
+   "BINDING_THRESHOLD_UPPER_BOUND_pp": 20.731,
+   "binding_rule": "S(best passing single) + 0.20",
+   "best_passing_single": "macro_filtered",
+   "fallback_candidates_meeting_G0.8": [
+    "macro_filtered"
+   ],
+   "registered_fallback_if_union_fails": "macro_filtered",
+   "fallback_note": null
+  },
+  {
+   "passing_set": [
+    "madasr"
+   ],
+   "union_equals": "arm_O+madasr",
+   "already_trained_at_8k": true,
+   "S_of_passing_singles_pp": {
+    "madasr": 20.0797
+   },
+   "pending_arms": [],
+   "threshold_vs_O_ref_pp": 20.773,
+   "threshold_vs_best_single_pp": 20.28,
+   "BINDING_THRESHOLD_pp": 20.28,
+   "BINDING_THRESHOLD_UPPER_BOUND_pp": 20.28,
+   "binding_rule": "S(best passing single) + 0.20",
+   "best_passing_single": "madasr",
+   "fallback_candidates_meeting_G0.8": [],
+   "registered_fallback_if_union_fails": null,
+   "fallback_note": "no passing single in this set clears the 500 unique-new-hour floor (SPEC §5 G0.8 / §8k Q3); if the union failed, SPEC §5 is STOP unless the owner amends the minimum"
+  },
+  {
+   "passing_set": [
+    "macro_filtered",
+    "madasr"
+   ],
+   "union_equals": "new union U",
+   "already_trained_at_8k": false,
+   "S_of_passing_singles_pp": {
+    "macro_filtered": 20.531,
+    "madasr": 20.0797
+   },
+   "pending_arms": [],
+   "threshold_vs_O_ref_pp": 20.773,
+   "threshold_vs_best_single_pp": 20.28,
+   "BINDING_THRESHOLD_pp": 20.28,
+   "BINDING_THRESHOLD_UPPER_BOUND_pp": 20.28,
+   "binding_rule": "S(best passing single) + 0.20",
+   "best_passing_single": "madasr",
+   "fallback_candidates_meeting_G0.8": [
+    "macro_filtered"
+   ],
+   "registered_fallback_if_union_fails": "macro_filtered",
+   "fallback_note": null
+  },
+  {
+   "passing_set": [
+    "vaani"
+   ],
+   "union_equals": "arm_O+vaani",
+   "already_trained_at_8k": true,
+   "S_of_passing_singles_pp": {
+    "vaani": 20.999
+   },
+   "pending_arms": [],
+   "threshold_vs_O_ref_pp": 20.773,
+   "threshold_vs_best_single_pp": 21.199,
+   "BINDING_THRESHOLD_pp": 20.773,
+   "BINDING_THRESHOLD_UPPER_BOUND_pp": 20.773,
+   "binding_rule": "S(O_ref) - 0.30",
+   "best_passing_single": "vaani",
+   "fallback_candidates_meeting_G0.8": [],
+   "registered_fallback_if_union_fails": null,
+   "fallback_note": "no passing single in this set clears the 500 unique-new-hour floor (SPEC §5 G0.8 / §8k Q3); if the union failed, SPEC §5 is STOP unless the owner amends the minimum"
+  },
+  {
+   "passing_set": [
+    "macro_filtered",
+    "vaani"
+   ],
+   "union_equals": "new union U",
+   "already_trained_at_8k": false,
+   "S_of_passing_singles_pp": {
+    "macro_filtered": 20.531,
+    "vaani": 20.999
+   },
+   "pending_arms": [],
+   "threshold_vs_O_ref_pp": 20.773,
+   "threshold_vs_best_single_pp": 20.731,
+   "BINDING_THRESHOLD_pp": 20.731,
+   "BINDING_THRESHOLD_UPPER_BOUND_pp": 20.731,
+   "binding_rule": "S(best passing single) + 0.20",
+   "best_passing_single": "macro_filtered",
+   "fallback_candidates_meeting_G0.8": [
+    "macro_filtered"
+   ],
+   "registered_fallback_if_union_fails": "macro_filtered",
+   "fallback_note": null
+  },
+  {
+   "passing_set": [
+    "madasr",
+    "vaani"
+   ],
+   "union_equals": "new union U",
+   "already_trained_at_8k": false,
+   "S_of_passing_singles_pp": {
+    "madasr": 20.0797,
+    "vaani": 20.999
+   },
+   "pending_arms": [],
+   "threshold_vs_O_ref_pp": 20.773,
+   "threshold_vs_best_single_pp": 20.28,
+   "BINDING_THRESHOLD_pp": 20.28,
+   "BINDING_THRESHOLD_UPPER_BOUND_pp": 20.28,
+   "binding_rule": "S(best passing single) + 0.20",
+   "best_passing_single": "madasr",
+   "fallback_candidates_meeting_G0.8": [],
+   "registered_fallback_if_union_fails": null,
+   "fallback_note": "no passing single in this set clears the 500 unique-new-hour floor (SPEC §5 G0.8 / §8k Q3); if the union failed, SPEC §5 is STOP unless the owner amends the minimum"
+  },
+  {
+   "passing_set": [
+    "macro_filtered",
+    "madasr",
+    "vaani"
+   ],
+   "union_equals": "arm_N (all three)",
+   "already_trained_at_8k": false,
+   "S_of_passing_singles_pp": {
+    "macro_filtered": 20.531,
+    "madasr": 20.0797,
+    "vaani": 20.999
+   },
+   "pending_arms": [],
+   "threshold_vs_O_ref_pp": 20.773,
+   "threshold_vs_best_single_pp": 20.28,
+   "BINDING_THRESHOLD_pp": 20.28,
+   "BINDING_THRESHOLD_UPPER_BOUND_pp": 20.28,
+   "binding_rule": "S(best passing single) + 0.20",
+   "best_passing_single": "madasr",
+   "fallback_candidates_meeting_G0.8": [
+    "macro_filtered"
+   ],
+   "registered_fallback_if_union_fails": "macro_filtered",
+   "fallback_note": null
+  }
+ ],
+ "arm_U": {
+  "rows": 1179937,
+  "hours": 1841.33,
+  "by_source": {
+   "commonvoice": {
+    "rows": 24712,
+    "hours": 39.458,
+    "share": 0.0214
+   },
+   "fleurs_train": {
+    "rows": 1654,
+    "hours": 5.828,
+    "share": 0.0032
+   },
+   "indicvoices": {
+    "rows": 273001,
+    "hours": 574.371,
+    "share": 0.3119
+   },
+   "kathbath": {
+    "rows": 45965,
+    "hours": 81.463,
+    "share": 0.0442
+   },
+   "macro_filtered": {
+    "rows": 543420,
+    "hours": 726.474,
+    "share": 0.3945
+   },
+   "madasr": {
+    "rows": 95241,
+    "hours": 148.973,
+    "share": 0.0809
+   },
+   "openslr53": {
+    "rows": 162144,
+    "hours": 158.955,
+    "share": 0.0863
+   },
+   "subakko": {
+    "rows": 33800,
+    "hours": 105.808,
+    "share": 0.0575
+   }
+  },
+  "sha256": "135e014c5c0caccc93fb21b23932a79082c3ea0d54c34f6924389c8096f28355",
+  "unique_new_hours_beyond_O": 875.447,
+  "new_hours_min_required": 500.0,
+  "meets_500h_floor": true,
+  "manifest": "experiments/p4/union/arm_U.jsonl",
+  "sha256_of_file": "135e014c5c0caccc93fb21b23932a79082c3ea0d54c34f6924389c8096f28355",
+  "equals_frozen_manifest": null,
+  "nvme_manifest": "experiments/p4/union/arm_U.nvme.jsonl",
+  "nvme_rows": 1179937
+ }
+}

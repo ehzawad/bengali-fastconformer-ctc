@@ -1,0 +1,172 @@
+{
+ "tool": "tools/p4/p4_final_test.py",
+ "spec": "experiments/p4/SPEC.md §6",
+ "mode": "FINAL_TEST",
+ "event_id": "f7b2b0e77f3b4f7f8008378a94a0484d",
+ "identity_sha256": "942e381973d2a060d6872b609b833829494edf956bf4fdc11266af2f7a2e9b57",
+ "identity": {
+  "event_id": "f7b2b0e77f3b4f7f8008378a94a0484d",
+  "mode": "FINAL_TEST",
+  "spec": "experiments/p4/SPEC.md §6 — one decode of the sealed FLEURS test",
+  "checkpoint": {
+   "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/p4/runs/N_O+macro_filtered_H120k/export/step_88000.nemo",
+   "sha256": "a73e658540eecfedfcdf888cc27594a30812af373c6138863f5fd19384ff2eb7"
+  },
+  "decoder": {
+   "strategy": "greedy_ctc",
+   "search": "none",
+   "batch_size": 1,
+   "segment_seconds": 25,
+   "staging": "bench_assets/asr_core.py PCM16 staged WAV",
+   "asr_core_sha256": "f894ef44ae4834fc80878f8b206e65e8321a0014807559494af0eb8880638a18"
+  },
+  "scorer": {
+   "surface": "tools/p3_common.frozen_norm",
+   "corpus_wer": "sum(edits)/sum(reference words)",
+   "p3_common_sha256": "c9db084ef0ab287453ef3b83f5cb92d7b06dffb84ef77f5e06670a49e96ac855",
+   "bench_score": {
+    "path": "/mnt/sdb/arafat/ehz/llm/bench_assets/bench_score.py",
+    "sha256": "620e42275889f41a575aa1841d130a28ed732697c74de2c7c29140435b3a08f5"
+   },
+   "bootstrap": {
+    "draws": 20000,
+    "seed": 20260905,
+    "tool_sha256": "8cf1b0dd7363ab39369c0c3e31218af67b97c735a7af6919178f5d356ca0b66c"
+   }
+  },
+  "panels": {
+   "test_manifest": {
+    "path": "/mnt/sdb/arafat/ehz/llm/bench_assets/eval_manifest.json",
+    "sha256": "27e5649cd8577a85b857e3b688e667742c41df99a9f0226732f2cab5ce8bd462",
+    "rows": 920,
+    "rows_expected": 920
+   },
+   "phase2_frozen": {
+    "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-benchmark/outputs_a5000/qwen3_adapter/predictions.json",
+    "sha256": "9c326f6f6014dba08fec7282830290db1e7b31171ae6986506383a24935845c8",
+    "rows": 920,
+    "rows_expected": 920
+   },
+   "phase1_frozen": {
+    "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-benchmark/outputs_a5000/ehzawad_fastconformer/predictions.json",
+    "sha256": "d393e0cd83aaafcec84cb9c0e10910fa89590a76de022ac599044762cdf6305e",
+    "rows": 920,
+    "rows_expected": 920
+   }
+  }
+ },
+ "event_registry": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/p4/final_test_event.json",
+ "ckpt": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/p4/runs/N_O+macro_filtered_H120k/export/step_88000.nemo",
+ "ckpt_sha256": "a73e658540eecfedfcdf888cc27594a30812af373c6138863f5fd19384ff2eb7",
+ "device": "cuda",
+ "decode_path": "bench_assets/asr_core.py (25 s segmentation, PCM16 staged WAV, transcribe batch_size=1)",
+ "n": 920,
+ "n_clusters": 349,
+ "wer_frozen_pp": 17.5441,
+ "cer_frozen_pp": 5.2704,
+ "empty_hyps": 0,
+ "multi_piece_clips": 20,
+ "forced_cuts": 7,
+ "paired_bootstrap": {
+  "phase2_qwen3_adapter_frozen": {
+   "n_rows": 920,
+   "n_clusters": 349,
+   "wer_a_pp": 17.5441,
+   "wer_b_pp": 16.5362,
+   "delta_pp_a_minus_b": 1.0078,
+   "ci95_pp": [
+    0.186,
+    1.8517
+   ],
+   "p_a_better": 0.0074,
+   "ci_upper_below_zero": false,
+   "draws": 20000,
+   "seed": 20260905,
+   "cluster_key": "frozen_norm(reference)",
+   "wer_definition": "corpus WER = sum(edits)/sum(ref words) per draw"
+  },
+  "phase1_fastconformer_frozen": {
+   "n_rows": 920,
+   "n_clusters": 349,
+   "wer_a_pp": 17.5441,
+   "wer_b_pp": 19.6723,
+   "delta_pp_a_minus_b": -2.1283,
+   "ci95_pp": [
+    -2.7066,
+    -1.5558
+   ],
+   "p_a_better": 1.0,
+   "ci_upper_below_zero": true,
+   "draws": 20000,
+   "seed": 20260905,
+   "cluster_key": "frozen_norm(reference)",
+   "wer_definition": "corpus WER = sum(edits)/sum(ref words) per draw"
+  }
+ },
+ "latency": {
+  "batch_size": 1,
+  "protocol": "warmed in-process batch-1 transcribe through asr_core staging (Phase-3 SPEC Q4 / benchmark protocol)",
+  "transcribe_ms_p50": 84.162,
+  "transcribe_ms_p95": 103.804,
+  "transcribe_ms_mean": 86.31,
+  "end_to_end_ms_p50": 90.839,
+  "end_to_end_ms_p95": 118.576,
+  "audio_seconds_total": 12360.2,
+  "rtf_transcribe": 0.006424
+ },
+ "baseline_gate": {
+  "phase2": {
+   "label": "phase2_qwen3_adapter",
+   "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-benchmark/outputs_a5000/qwen3_adapter/predictions.json",
+   "sha256": "9c326f6f6014dba08fec7282830290db1e7b31171ae6986506383a24935845c8",
+   "n": 920,
+   "n_expected": 920,
+   "n_clusters": 349,
+   "n_clusters_expected": 349,
+   "wer_pp_rescored": 16.5362,
+   "cer_pp_rescored": 4.6781,
+   "wer_pp_spec": 16.54,
+   "delta_pp": -0.0038,
+   "tolerance_pp": 0.005,
+   "matches_spec": true,
+   "rows_ok": true
+  },
+  "phase1": {
+   "label": "phase1_fastconformer",
+   "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-benchmark/outputs_a5000/ehzawad_fastconformer/predictions.json",
+   "sha256": "d393e0cd83aaafcec84cb9c0e10910fa89590a76de022ac599044762cdf6305e",
+   "n": 920,
+   "n_expected": 920,
+   "n_clusters": 349,
+   "n_clusters_expected": 349,
+   "wer_pp_rescored": 19.6723,
+   "cer_pp_rescored": 5.7915,
+   "wer_pp_spec": 19.672,
+   "delta_pp": 0.0003,
+   "tolerance_pp": 0.005,
+   "matches_spec": true,
+   "rows_ok": true,
+   "note": "SPEC §6 records Phase-1 at 19.67 pp (corrected 2026-09-05); the frozen predictions re-score to 19.6723 pp and summary_a5000.json records 0.19672. Reconciled 2026-09-13."
+  },
+  "p1_discrepancy_acknowledged": false,
+  "enforced": true
+ },
+ "scorer_parity_with_bench_score_norm": true,
+ "scorer_executed": {
+  "path": "/mnt/sdb/arafat/ehz/llm/bench_assets/bench_score.py",
+  "sha256": "620e42275889f41a575aa1841d130a28ed732697c74de2c7c29140435b3a08f5"
+ },
+ "asr_core_sha256": "f894ef44ae4834fc80878f8b206e65e8321a0014807559494af0eb8880638a18",
+ "p3_common_sha256": "c9db084ef0ab287453ef3b83f5cb92d7b06dffb84ef77f5e06670a49e96ac855",
+ "tool_sha256": "c40805e4a3c132401865ce983a0adfaa2793d0d00e7b64ae80272b795b8c781b",
+ "bootstrap_tool_sha256": "8cf1b0dd7363ab39369c0c3e31218af67b97c735a7af6919178f5d356ca0b66c",
+ "thresholds": {
+  "success_wer_pp": 16.54,
+  "strong_wer_pp": 16.04,
+  "rule": "SPEC §6: WER < 16.54 % AND 95 % CI of (P4 − P2) entirely below 0"
+ },
+ "test_manifest_sha256": "27e5649cd8577a85b857e3b688e667742c41df99a9f0226732f2cab5ce8bd462",
+ "meets_success": false,
+ "meets_strong": false,
+ "peak_reserved_gib": 0.568
+}

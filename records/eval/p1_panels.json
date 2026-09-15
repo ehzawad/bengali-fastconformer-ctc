@@ -1,0 +1,217 @@
+{
+ "tool": "tools/p4/p4_panel_eval.py",
+ "spec": "experiments/p4/SPEC.md §2 (panels, S, guards), §4 (restoration)",
+ "ckpt": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/experiments/fastconformer_ctc_bn_1kh/final.nemo",
+ "ckpt_sha256": "61362a360e2474b814ceb1d1cc597dbbe71badd22680286cd42230bc1520e5db",
+ "device": "cuda",
+ "surfaces": {
+  "frozen": "tools/p3_common.frozen_norm == bench_assets/bench_score.norm (SELECTION surface, SPEC §2)",
+  "nemo_internal": "nemo word_error_rate on RAW text (Phase-1 val_wer parity)",
+  "p4_target_surface": "metric_surface(NFC(t), False) + whitespace collapse (SPEC §1 TRAINING-TARGET surface; diagnostic only)"
+ },
+ "panels": {
+  "D": {
+   "manifest": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/data2/val_corpus.json",
+   "manifest_sha256": "4fe9a9187f24f43e17c19413a43c0520d17a5289fa1c05e681a8c95621b9b948",
+   "rows_registered": 5385,
+   "rows_used": 5385,
+   "role": "selection+historical"
+  },
+  "K": {
+   "manifest": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/data4/kathbath/manifest_valid.jsonl",
+   "manifest_sha256": "b90c50243595a98047c97cbdcf1622a64f2004cb00d56c8c35b6231d58ba804c",
+   "rows_registered": 2236,
+   "rows_used": 2236,
+   "role": "selection"
+  },
+  "R": {
+   "manifest": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/data4/respin/manifest_madasr_dev.jsonl",
+   "manifest_sha256": "bc8e3b0b43578a3f79aa296643b56f58746fdc7fc8ab07aca4a640b530105718",
+   "rows_registered": 1500,
+   "rows_used": 1500,
+   "role": "selection (only if MADASR admitted)"
+  }
+ },
+ "results": {
+  "D": {
+   "wer_frozen": 0.20346,
+   "cer_frozen": 0.06856,
+   "ref_words_frozen": 55191,
+   "word_errors_frozen": 11229,
+   "wer_p4_target_surface": 0.20329,
+   "cer_p4_target_surface": 0.06855,
+   "ref_words_p4_target_surface": 55192,
+   "word_errors_p4_target_surface": 11220,
+   "wer_nemo_internal": 0.20977,
+   "per_source": {
+    "commonvoice": 0.19213,
+    "indicvoices": 0.16565,
+    "kathbath": 0.12484,
+    "openslr53": 0.18103,
+    "subakko": 0.36833
+   },
+   "per_source_ref_words": {
+    "commonvoice": 4648,
+    "indicvoices": 29218,
+    "kathbath": 5599,
+    "openslr53": 5314,
+    "subakko": 10412
+   },
+   "empty_hyps": 0,
+   "empty_rate": 0.0,
+   "n": 5385,
+   "style_slices": {
+    "Conversation": {
+     "wer_frozen": 0.21575,
+     "n": 774,
+     "ref_words": 6628
+    },
+    "Extempore": {
+     "wer_frozen": 0.15098,
+     "n": 1282,
+     "ref_words": 20202
+    },
+    "Read": {
+     "wer_frozen": 0.15075,
+     "n": 220,
+     "ref_words": 2388
+    }
+   },
+   "conversational": {
+    "scenarios": [
+     "Conversation"
+    ],
+    "wer_frozen": 0.21575,
+    "n": 774,
+    "ref_words": 6628
+   },
+   "wall_s": 41.0,
+   "batch_size": 32
+  },
+  "K": {
+   "wer_frozen": 0.14674,
+   "cer_frozen": 0.03227,
+   "ref_words_frozen": 23995,
+   "word_errors_frozen": 3521,
+   "wer_p4_target_surface": 0.14674,
+   "cer_p4_target_surface": 0.03227,
+   "ref_words_p4_target_surface": 23995,
+   "word_errors_p4_target_surface": 3521,
+   "wer_nemo_internal": 0.1467,
+   "per_source": {
+    "kathbath_valid": 0.14674
+   },
+   "per_source_ref_words": {
+    "kathbath_valid": 23995
+   },
+   "empty_hyps": 1,
+   "empty_rate": 0.000447,
+   "n": 2236,
+   "wall_s": 17.3,
+   "batch_size": 32
+  },
+  "R": {
+   "wer_frozen": 0.32056,
+   "cer_frozen": 0.09108,
+   "ref_words_frozen": 14434,
+   "word_errors_frozen": 4627,
+   "wer_p4_target_surface": 0.32056,
+   "cer_p4_target_surface": 0.09108,
+   "ref_words_p4_target_surface": 14434,
+   "word_errors_p4_target_surface": 4627,
+   "wer_nemo_internal": 0.32132,
+   "per_source": {
+    "madasr_dev": 0.32056
+   },
+   "per_source_ref_words": {
+    "madasr_dev": 14434
+   },
+   "empty_hyps": 0,
+   "empty_rate": 0.0,
+   "n": 1500,
+   "wall_s": 8.3,
+   "batch_size": 32
+  }
+ },
+ "selection_score": {
+  "S_pp": null,
+  "formula": {
+   "D": 0.6,
+   "M": 0.2,
+   "R": 0.1,
+   "K": 0.1
+  },
+  "missing_panels": [
+   "M"
+  ],
+  "note": "S undefined: SPEC §2 weights are fixed and are never renormalised over the panels that happen to exist"
+ },
+ "dev_D_published_baselines": {
+  "phase2_qwen": 0.1703,
+  "phase1_ctc": 0.2035,
+  "hishab": 0.223
+ },
+ "scorer": {
+  "p3_common.py": {
+   "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/tools/p3_common.py",
+   "sha256": "ddab44e25ab58276d7c2bcdcba290f7e1c819e59071758bd2bf1f5f72d9fe9ae"
+  },
+  "bn_normalize.py": {
+   "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/src/bn_normalize.py",
+   "sha256": "238364e725be1143132e8e3b32c964ba3baceb229cf3f9bca6f368f8bad1b436"
+  },
+  "p4_panel_eval.py": {
+   "path": "/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/tools/p4/p4_panel_eval.py",
+   "sha256": "6974aaea7ebf7dfc21d78b5275336ba483be7ce06987721eec641fce75e98c16"
+  }
+ },
+ "limit": null,
+ "restoration_check": {
+  "spec": "§4 zero-update restoration: dev D frozen WER == 20.35 % ±0.05 pp",
+  "observed_pp": 20.346,
+  "target_pp": 20.35,
+  "delta_pp": -0.004,
+  "tolerance_pp": 0.05,
+  "passes": true,
+  "nemo_internal_observed_pp": 20.977,
+  "nemo_internal_target_pp": 20.83
+ },
+ "guard_report": {
+  "guards": [
+   {
+    "name": "empty_rate[D]",
+    "pass_": true,
+    "observed": 0.0,
+    "limit": 0.001,
+    "spec": "§2 empty-output rate ≤0.1 %"
+   },
+   {
+    "name": "empty_rate[K]",
+    "pass_": true,
+    "observed": 0.000447,
+    "limit": 0.001,
+    "spec": "§2 empty-output rate ≤0.1 %"
+   },
+   {
+    "name": "empty_rate[R]",
+    "pass_": true,
+    "observed": 0.0,
+    "limit": 0.001,
+    "spec": "§2 empty-output rate ≤0.1 %"
+   },
+   {
+    "name": "D_per_source_regression",
+    "pass_": null,
+    "spec": "§2 no D source worse than P1 by >1.0 pp",
+    "note": "no stored Phase-1 D baseline; run --record-baseline first"
+   },
+   {
+    "name": "D_conversational_regression",
+    "pass_": null,
+    "spec": "§2 conversational slice of D worse by ≤0.5 pp",
+    "note": "no stored Phase-1 D baseline"
+   }
+  ],
+  "all_pass": null
+ }
+}
