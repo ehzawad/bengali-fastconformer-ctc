@@ -94,6 +94,7 @@ exports the selected checkpoint and verifies it reproduces its development WER.
 ## Quick check from a fresh clone
 
 What was actually run to verify this document (2026-09-15): fresh clone → `fetch_init.py` →
+`openslr53.py --shards 0 --limit 200` (one real shard: download, extract, join, convert),
 `fleurs.py --limit 200`, `subakko.py --fetch --limit 300`, `kathbath.py --fetch --limit 300`,
 `indicvoices.py --fetch --limit 300` (one shard each) → `carve.py --fresh` on that pool →
 `train.py --config <copy of ctc_from_nvidia.yaml with val.panels: {D: ...}> --manifest
