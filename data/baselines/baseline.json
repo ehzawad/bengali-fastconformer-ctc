@@ -1,0 +1,52 @@
+{
+ "measured_utc": "2026-09-06T16:39:55",
+ "init_sha256": "61362a360e2474b814ceb1d1cc597dbbe71badd22680286cd42230bc1520e5db",
+ "S_pp": 21.0296,
+ "D": {
+  "n": 5385,
+  "wer_frozen": 0.20348,
+  "cer_frozen": 0.06856,
+  "wer_nemo": 0.20979,
+  "empty_rate": 0.0,
+  "empties": 0,
+  "wall_s": 119.7,
+  "per_source": {
+   "commonvoice": 0.19234,
+   "indicvoices": 0.16569,
+   "kathbath": 0.12484,
+   "openslr53": 0.18084,
+   "subakko": 0.36833
+  },
+  "conversational": {
+   "n_ref_words": 6628,
+   "wer_frozen": 0.21575
+  }
+ },
+ "M": {
+  "n": 1829,
+  "wer_frozen": 0.20739,
+  "cer_frozen": 0.0557,
+  "wer_nemo": 0.3077,
+  "empty_rate": 0.0,
+  "empties": 0,
+  "wall_s": 37.2
+ },
+ "K": {
+  "n": 2236,
+  "wer_frozen": 0.14674,
+  "cer_frozen": 0.03227,
+  "wer_nemo": 0.1467,
+  "empty_rate": 0.00045,
+  "empties": 1,
+  "wall_s": 21.6
+ },
+ "R": {
+  "n": 1500,
+  "wer_frozen": 0.32056,
+  "cer_frozen": 0.09109,
+  "wer_nemo": 0.32132,
+  "empty_rate": 0.0,
+  "empties": 0,
+  "wall_s": 16.2
+ }
+}

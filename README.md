@@ -16,6 +16,9 @@ than in a notebook.
 
 ```
 bnasr/
+  prepare/               per-source fetch + conversion (openslr53, fleurs, commonvoice, kathbath,
+                         indicvoices, subakko) and carve.py: training pool, panel D, holdout
+  fetch_init.py          fetch + register the NVIDIA base checkpoint
   build_corpus.py        corpus construction with the admission audits (script purity, protected-
                          panel sentence and audio-fingerprint overlap, PCM-hash de-duplication,
                          per-transcript caps, duration band) and the exclusion ledger
@@ -45,6 +48,8 @@ configs/ctc.yaml               the same recipe warm-started from an earlier Beng
 scripts/                       ingest chains and bundle download helpers
 tests/                         unit tests for the normaliser and the competition-WER scorer
 data/tokenizer_v1024_corpus/   the 1,024-piece SentencePiece tokenizer
+data/panels/                   the released training pool / panel / holdout as (source, key, text hash)
+data/baselines/                the reference-model panel numbers the guards compare against
 ops/systemd/worker.service     a supervised trainer unit
 ```
 
@@ -78,14 +83,19 @@ bootstraps against the reference models.
 ## Reproducing
 
 Requires an NVIDIA GPU with ≥20 GB, `nemo_toolkit[asr]==2.7.3` (see `requirements.txt`), and the
-source corpora, which are not redistributed here.
+source corpora, which are not redistributed here. **[DATA.md](DATA.md)** is the step-by-step data
+guide: how each source is fetched and converted (`bnasr/prepare/`), how the released training
+pool, development panel and holdout are reproduced row for row from the shipped lists
+(`data/panels/`), and what was actually run from a fresh clone to check it.
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m pytest tests -q                       # no GPU needed
-scripts/run_ingest_chain.sh                                # per-source ingest (see each script)
+.venv/bin/python bnasr/fetch_init.py                       # base checkpoint -> experiments/inits/
+.venv/bin/python bnasr/prepare/openslr53.py                # ... and the other five sources, see DATA.md
+.venv/bin/python bnasr/prepare/carve.py                    # training pool + panel D + holdout
 .venv/bin/python bnasr/build_corpus.py --arm <arm>          # corpus + admission audits
-.venv/bin/python bnasr/train.py --config configs/ctc_from_nvidia.yaml --run-name <name>
+.venv/bin/python bnasr/train.py --config configs/ctc_from_nvidia.yaml --arm <arm> --run-name <name>
 .venv/bin/python bnasr/progress.py                         # validation table, eligibility, selection
 .venv/bin/python bnasr/qualify.py --device cuda            # select, qualify, export .nemo
 .venv/bin/python bnasr/panel_eval.py --ckpt <.nemo> --panels D M K R --out <json> --save-hyps <json>

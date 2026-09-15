@@ -1,0 +1,250 @@
+{
+ "source": "experiments/fastconformer_ctc_bn_1kh/version_{0,1}/events.out.tfevents.*",
+ "tag": "val_wer",
+ "panel": "data2/val_corpus.json (5,385 rows) == Phase 4 panel D",
+ "surface": "NeMo-internal WER on raw text, greedy CTC",
+ "n_validations": 39,
+ "best": {
+  "tb_step": 35005,
+  "update": 35000,
+  "val_wer_pct": 20.8259,
+  "lr": 3.063553594984114e-05
+ },
+ "note": "Councils H..O used a curve built from lightning_logs.txt \"New best score\" lines labelled (i+1)*1000. Those are improvement events, not a 1,000-step grid: the resulting series is the running-minimum envelope on a wrong x-axis, understating the true update by up to 16,005 (84%). This file supersedes it.",
+ "curve": [
+  {
+   "tb_step": 999,
+   "update": 1000,
+   "val_wer_pct": 83.7504,
+   "lr": 0.00025012492551468313
+  },
+  {
+   "tb_step": 1998,
+   "update": 2000,
+   "val_wer_pct": 56.5503,
+   "lr": 0.0005000000237487257
+  },
+  {
+   "tb_step": 2998,
+   "update": 3000,
+   "val_wer_pct": 40.2771,
+   "lr": 0.0004991631722077727
+  },
+  {
+   "tb_step": 3999,
+   "update": 4000,
+   "val_wer_pct": 39.8213,
+   "lr": 0.0004966584965586662
+  },
+  {
+   "tb_step": 4999,
+   "update": 5000,
+   "val_wer_pct": 32.8115,
+   "lr": 0.0004925030516460538
+  },
+  {
+   "tb_step": 5999,
+   "update": 6000,
+   "val_wer_pct": 36.4926,
+   "lr": 0.00048672521370463073
+  },
+  {
+   "tb_step": 6999,
+   "update": 7000,
+   "val_wer_pct": 29.4937,
+   "lr": 0.00047936447663232684
+  },
+  {
+   "tb_step": 8000,
+   "update": 8000,
+   "val_wer_pct": 32.6989,
+   "lr": 0.00047047107364051044
+  },
+  {
+   "tb_step": 9000,
+   "update": 9000,
+   "val_wer_pct": 27.5651,
+   "lr": 0.0004601057735271752
+  },
+  {
+   "tb_step": 10000,
+   "update": 10000,
+   "val_wer_pct": 29.4156,
+   "lr": 0.0004483394150156528
+  },
+  {
+   "tb_step": 11000,
+   "update": 11000,
+   "val_wer_pct": 26.1886,
+   "lr": 0.00043525235378183424
+  },
+  {
+   "tb_step": 12001,
+   "update": 12000,
+   "val_wer_pct": 28.6765,
+   "lr": 0.0004209339967928827
+  },
+  {
+   "tb_step": 13001,
+   "update": 13000,
+   "val_wer_pct": 25.947,
+   "lr": 0.00040548210381530225
+  },
+  {
+   "tb_step": 14001,
+   "update": 14000,
+   "val_wer_pct": 25.4767,
+   "lr": 0.00038900229264982045
+  },
+  {
+   "tb_step": 15001,
+   "update": 15000,
+   "val_wer_pct": 26.7297,
+   "lr": 0.00037160710780881345
+  },
+  {
+   "tb_step": 16001,
+   "update": 16000,
+   "val_wer_pct": 24.5142,
+   "lr": 0.0003534153802320361
+  },
+  {
+   "tb_step": 17001,
+   "update": 17000,
+   "val_wer_pct": 27.6287,
+   "lr": 0.0003345513832755387
+  },
+  {
+   "tb_step": 18001,
+   "update": 18000,
+   "val_wer_pct": 23.6734,
+   "lr": 0.00031514393049292266
+  },
+  {
+   "tb_step": 19002,
+   "update": 19000,
+   "val_wer_pct": 25.9289,
+   "lr": 0.00029532567714340985
+  },
+  {
+   "tb_step": 20002,
+   "update": 20000,
+   "val_wer_pct": 22.9307,
+   "lr": 0.0002752319269347936
+  },
+  {
+   "tb_step": 21002,
+   "update": 21000,
+   "val_wer_pct": 24.28,
+   "lr": 0.00025499999173916876
+  },
+  {
+   "tb_step": 22002,
+   "update": 22000,
+   "val_wer_pct": 22.6201,
+   "lr": 0.00023476805654354393
+  },
+  {
+   "tb_step": 23003,
+   "update": 23000,
+   "val_wer_pct": 24.8102,
+   "lr": 0.0002146743208868429
+  },
+  {
+   "tb_step": 24003,
+   "update": 24000,
+   "val_wer_pct": 22.3241,
+   "lr": 0.00019485605298541486
+  },
+  {
+   "tb_step": 25003,
+   "update": 25000,
+   "val_wer_pct": 22.3314,
+   "lr": 0.0001754486293066293
+  },
+  {
+   "tb_step": 26003,
+   "update": 26000,
+   "val_wer_pct": 23.1649,
+   "lr": 0.00015658461779821664
+  },
+  {
+   "tb_step": 27003,
+   "update": 27000,
+   "val_wer_pct": 21.8538,
+   "lr": 0.0001383928902214393
+  },
+  {
+   "tb_step": 28003,
+   "update": 28000,
+   "val_wer_pct": 24.7103,
+   "lr": 0.0001209976981044747
+  },
+  {
+   "tb_step": 29003,
+   "update": 29000,
+   "val_wer_pct": 21.496,
+   "lr": 0.00010451788693899289
+  },
+  {
+   "tb_step": 30004,
+   "update": 30000,
+   "val_wer_pct": 23.45,
+   "lr": 8.90660157892853e-05
+  },
+  {
+   "tb_step": 31004,
+   "update": 31000,
+   "val_wer_pct": 21.2708,
+   "lr": 7.474764424841851e-05
+  },
+  {
+   "tb_step": 32004,
+   "update": 32000,
+   "val_wer_pct": 22.1879,
+   "lr": 6.166057573864236e-05
+  },
+  {
+   "tb_step": 33004,
+   "update": 33000,
+   "val_wer_pct": 21.1619,
+   "lr": 4.9894213589141145e-05
+  },
+  {
+   "tb_step": 34005,
+   "update": 34000,
+   "val_wer_pct": 22.631,
+   "lr": 3.952893166569993e-05
+  },
+  {
+   "tb_step": 35005,
+   "update": 35000,
+   "val_wer_pct": 20.8259,
+   "lr": 3.063553594984114e-05
+  },
+  {
+   "tb_step": 36005,
+   "update": 36000,
+   "val_wer_pct": 21.0438,
+   "lr": 2.3274775230675004e-05
+  },
+  {
+   "tb_step": 37005,
+   "update": 37000,
+   "val_wer_pct": 21.5396,
+   "lr": 1.7496935470262542e-05
+  },
+  {
+   "tb_step": 38005,
+   "update": 38000,
+   "val_wer_pct": 20.993,
+   "lr": 1.3341480553208385e-05
+  },
+  {
+   "tb_step": 39006,
+   "update": 39000,
+   "val_wer_pct": 23.4882,
+   "lr": 1.0836799447133671e-05
+  }
+ ]
+}

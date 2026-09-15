@@ -91,7 +91,7 @@ ORDER_TOL_PP = 0.005                           # this tool: recomputed vs traine
 # The continuation/final guards (SPEC §8k Q2) — reported, never used for ADMITTED.
 P1_CONV_LIMIT_PP = 22.075                      # SPEC §8k Q2: "conversational <= P1 +0.5 pp = 22.075 %" (P1 exactly 21.575)
 P1_SOURCE_PP = 1.00                            # SPEC §8k Q2: "every D source <= P1 +1.0 pp"
-BASELINE_P1 = REPO / "experiments/baseline_p1.json"
+BASELINE_P1 = REPO / "data/baselines/baseline.json"
 
 PANEL_MANIFEST = dict(PANELS)                  # SPEC §2, via common.PANELS — the trainer decodes exactly these
 assert set(PANEL_MANIFEST) == set(WEIGHTS), "SPEC §2/§5: S is defined on exactly the panels D/M/K/R"

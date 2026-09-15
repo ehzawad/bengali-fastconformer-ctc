@@ -20,7 +20,7 @@ paths:
   # tokenizer unchanged (SPEC §4). sha256 61362a36… is verified at start-up.
   init: experiments/fastconformer_ctc_bn_1kh/final.nemo
   init_sha256_prefix: "61362a36"
-  init_N: /path/to/hf-cache/models--nvidia--stt_en_fastconformer_ctc_large/snapshots/<rev>/stt_en_fastconformer_ctc_large.nemo   # your local snapshot of nvidia/stt_en_fastconformer_ctc_large
+  init_N: experiments/inits/stt_en_fastconformer_ctc_large.nemo   # written by bnasr/fetch_init.py
   init_N_sha256_prefix: "1f2c819d"                    # the HF blob name is its sha256
   tokenizer_dir: data/tokenizer_v1024_corpus          # SPEC §3 G0.5, 6288cf8e…
   runs_dir: experiments/runs

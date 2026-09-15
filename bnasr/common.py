@@ -279,8 +279,8 @@ TIE_BAND_PP = 0.05
 P1_DEV_FROZEN = 0.2035            # SPEC §2 ("P1 20.35")
 P1_DEV_NEMO_INTERNAL = 0.2083     # task brief / the baseline record, reported only
 RESTORATION_TOL = 0.0005          # SPEC §4: "equals ... 20.35 % (frozen) ±0.05"
-BASELINE_JSON = REPO / "experiments/baseline_p1.json"
-PHASE1_CURVE_JSON = REPO / "experiments/phase1_val_curve.json"
+BASELINE_JSON = REPO / "data/baselines/baseline.json"
+PHASE1_CURVE_JSON = REPO / "data/baselines/baseline_val_curve.json"
 
 # Panels (SPEC §2). M is written by bnasr/build_corpus.py and may not
 # exist yet; every consumer here treats a missing panel as absent, never as

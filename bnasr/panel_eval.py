@@ -580,7 +580,7 @@ SEALED_TEST_DIR = Path(os.environ.get("BNASR_FLEURS_DIR", "/mnt/sdb/arafat/ehz/l
 D_STYLE_MANIFEST = REPO / "data2/indicvoices/manifest.jsonl"
 CONVERSATIONAL_SCENARIOS = ("Conversation",)
 
-BASELINE_PATH = REPO / "experiments/fixtures/p1_panel_baselines.json"
+BASELINE_PATH = REPO / "data/baselines/panel_baselines.json"
 
 SURFACES = ("frozen", "nemo_internal", "p4_target_surface")
 
