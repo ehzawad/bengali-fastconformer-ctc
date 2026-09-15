@@ -1,7 +1,7 @@
 # Run records
 
 The registered contract (SPEC.md), the adversarial review rounds (council/), the audit logs, corpus and
-admission reports, and the evaluation bundles of the run that produced `ehzawad/stt_bn_fastconformer_ctc`.
+admission reports, and the evaluation bundles of the run that produced [ehzawad/stt_bn_fastconformer_ctc](https://huggingface.co/ehzawad/stt_bn_fastconformer_ctc).
 Kept verbatim from the records repository they were written in, internal names included; the code they
 refer to as `tools/p4/p4_*.py` is `bnasr/*.py` here (see the top-level README).
 

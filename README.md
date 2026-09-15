@@ -1,5 +1,8 @@
 # bengali-fastconformer-ctc
 
+**Model:** https://huggingface.co/ehzawad/stt_bn_fastconformer_ctc — weights (`stt_bn_fastconformer_ctc.nemo`, CC-BY-SA-4.0), model card and results supplement.
+**Benchmark:** https://github.com/ehzawad/bengali-asr-benchmark — how it compares with the other public Bengali models.
+
 Training and evaluation code for
 [`ehzawad/stt_bn_fastconformer_ctc`](https://huggingface.co/ehzawad/stt_bn_fastconformer_ctc):
 a FastConformer-CTC large (115.6M parameters, 8× subsampling, 1,024-piece Bengali BPE) trained
@@ -109,7 +112,8 @@ Local paths to the FLEURS evaluation set and the NVIDIA base checkpoint are set 
 
 ## Licence
 
-Code: [Apache-2.0](LICENSE). The model weights are a separate work, released on Hugging Face under
+Code: [Apache-2.0](LICENSE). The model weights are a separate work, released at
+[huggingface.co/ehzawad/stt_bn_fastconformer_ctc](https://huggingface.co/ehzawad/stt_bn_fastconformer_ctc) under
 CC-BY-SA-4.0 (the share-alike term is carried from OpenSLR-53). Upstream corpus terms are those of
 their publishers and are not relicensed by this repository.
 

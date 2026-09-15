@@ -1,5 +1,7 @@
 # Preparing the data
 
+The data recipe behind [ehzawad/stt_bn_fastconformer_ctc](https://huggingface.co/ehzawad/stt_bn_fastconformer_ctc).
+
 Everything below runs from the repository root with the project virtualenv
 (`python -m venv .venv && .venv/bin/pip install -r requirements.txt`). Each step is
 resumable and idempotent (already-converted clips are skipped). Nothing here redistributes
