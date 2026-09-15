@@ -1,0 +1,137 @@
+# this recipe registered values (experiments/SPEC.md §4, §5).
+#
+# bnasr/train.py reads this file instead of hard-coding numbers, so the
+# recipe is auditable in one place; bnasr/common.py holds the same
+# constants and `configure()` asserts this file agrees with them at start-up.
+# A value that is not transcribed from SPEC is marked UNREGISTERED with the
+# evidence it rests on instead.
+
+init: A                                               # SPEC §4 warm start (the baseline weights); N = configs/ctc_from_nvidia.yaml
+seed: 20260905                                        # SPEC §2 (panel M seed)
+gpu_uuid: GPU-3ce8e4c2-3bae-8744-eeec-70e8a0437567    # the A5000, SPEC §0
+
+paths:
+  # Init A: ALL weights of the baseline final.nemo incl. BatchNorm buffers,
+  # tokenizer unchanged (SPEC §4). sha256 61362a36… is verified at start-up.
+  init: experiments/fastconformer_ctc_bn_1kh/final.nemo
+  init_sha256_prefix: "61362a36"
+  tokenizer_dir: data/tokenizer_v1024_corpus          # SPEC §3 G0.5, 6288cf8e…
+  runs_dir: experiments/runs
+  # Arm manifests come from bnasr/build_corpus.py (SPEC §5). They do not
+  # exist until Gate 0 passes; --manifest overrides for smoke runs.
+  # Training reads the NVMe FLAC cache (SPEC §8c): *.nvme.jsonl are verbatim path-remapped copies of the frozen
+  # /mnt/sdb manifests (same rows, order, text, durations); checksums of both are recorded at freeze.
+  arms:
+    O: experiments/corpus/arm_O.nvme.jsonl
+    "O+macro_filtered": experiments/corpus/arm_O+macro_filtered.nvme.jsonl
+    "O+madasr": experiments/corpus/arm_O+madasr.nvme.jsonl
+    "O+vaani": experiments/corpus/arm_O+vaani.nvme.jsonl
+    N: experiments/corpus/arm_N.nvme.jsonl
+    U: experiments/union/arm_U.nvme.jsonl          # council G/§8m union O ∪ {macro_filtered, madasr}, built 2026-09-08 02:39 UTC, sha 135e014c
+
+# ----------------------------------------------------------------- batch ----
+# SPEC §4: "effective batch 252 = 12 x 21". The product is asserted at
+# start-up; the baseline ran the same 252 the other way round (21 x 12, run_stage.sh)
+# and its measured worst-case peak at 8x subsampling was 15,654 MiB, so the
+# smaller microbatch registered here is strictly inside that envelope.
+batch:
+  microbatch: 12
+  accumulate: 21
+  effective: 252
+
+# ------------------------------------------------------------ dataloader ----
+data:
+  sample_rate: 16000
+  text_field: text
+  use_bucketing: true          # SPEC §4 "bucketing on duration"
+  # UNREGISTERED (SPEC §4 fixes bucketing on duration but not the bin edges):
+  # the baseline's own 10-bucket list, inherited verbatim from config.launch.yaml so
+  # the warm start draws its microbatches the way the checkpoint was trained.
+  # Phase 3 rejected this list, but for a reason that does not apply here: its
+  # sampler was duration-budgeted (batch_duration 100 s) so a wide top bucket
+  # could blow the memory envelope. Here every microbatch is exactly 12 cuts,
+  # so the worst case is 12 x longest-clip regardless of the bins - which is
+  # precisely what --profile-longest measures.
+  num_buckets: 10
+  bucket_duration_bins: [2.27, 2.9, 3.5, 4.2, 5.18, 6.23, 7.65, 9.69, 12.58]
+  bucket_buffer_size: 20000
+  shuffle_buffer_size: 10000
+  shuffle: true
+  seed: 20260905
+  shard_seed: 20260905         # SPEC §4 "shard_seed fixed"; Lhotse defaults to
+                               # 'trng' (a true-random seed per worker), which
+                               # would make the sampler state unreproducible.
+  # SPEC §4 "concurrent_bucketing false". NeMo 2.7.3 defaults it TRUE and
+  # Lhotse documents concurrent bucket filling as non-deterministic sampling;
+  # with it true a checkpointed sampler cursor does not replay.
+  concurrent_bucketing: false
+  num_workers: 8               # <= 12 processes (shared-box rule)
+  pin_memory: true
+  min_duration: 0.1
+  max_duration: 30.0           # drops 0 rows: the the baseline pool is capped at 30
+  # max_tps is deliberately NOT set. the baseline used 11.0 as a runtime backstop,
+  # but SPEC §1 registers the CTC feasibility rule (L + R <= T and
+  # (L+R)/T <= 0.90) at CORPUS-BUILD time, and a runtime tokens-per-second
+  # filter silently drops rows from the sampler - which would break both the
+  # per-row exposure count and SPEC §5's "8,000 steps = 2.016 M presentations".
+  drop_last: true              # keeps every microbatch exactly 12 cuts, which
+                               # is what makes 252 presentations per update -
+                               # and 2.016 M per pilot arm - literally true.
+  skip_missing_manifest_entries: false   # a missing file must stop the run
+
+# ------------------------------------------------------------- optimiser ----
+optim:
+  betas: [0.9, 0.98]           # SPEC §4
+  eps: 1.0e-8                  # UNREGISTERED: torch AdamW default, recorded
+  weight_decay: 1.0e-3         # SPEC §4; 0 for biases and norm scales/shifts
+  grad_clip: 1.0               # SPEC §4
+  precision: bf16              # SPEC §4 "bf16" - autocast compute dtype only;
+                               # master weights and Adam moments stay fp32
+
+# -------------------------------------------------------------- schedule ----
+# SPEC §4: linear warmup 1,000 steps 1e-5 -> 2e-4, then cosine to 1e-5 at
+# H = 150,000. A pilot (--steps 8000) uses this SAME horizon, so its 8k
+# checkpoint resumes to H without a second warmup (SPEC §5).
+sched:
+  warmup_steps: 1000
+  lr_start: 1.0e-5
+  lr_peak: 2.0e-4
+  lr_final: 1.0e-5
+  horizon: 150000
+
+# ---------------------------------------------------------------- specaug ----
+# SPEC §4 (the baseline values). These are ASSERTED against the SpectrogramAugmentation
+# module already inside final.nemo - this recipe never rebuilds it.
+specaug:
+  freq_masks: 2
+  freq_width: 15
+  time_masks: 2
+  time_width: 0.05
+
+# ------------------------------------------------------------- validation ----
+val:
+  every: 2000                  # SPEC §4
+  batch_size: 32
+  panels:                      # SPEC §2; M appears once build_corpus runs
+    D: data2/val_corpus.json
+    M: experiments/corpus/panel_M.jsonl
+    K: data4/kathbath/manifest_valid.jsonl
+    R: data4/respin/manifest_madasr_dev.jsonl
+
+# ------------------------------------------------------------ checkpoints ----
+ckpt:
+  keep_last: 2                 # SPEC §4 "last 2 resumable"
+  every: 500                   # robustness (owner 2026-09-06): resumable checkpoint every 500 updates, rotated (keep_last)
+  keep_best: 3                 # "best 3 by S"
+  milestones: [8000, 20000, 40000, 80000, 120000, 150000]   # immutable
+
+# ----------------------------------------------------------------- limits ----
+limits:
+  profile_target_gib: 16.5     # SPEC §3 G0.7 profiling target
+  watchdog_reserved_gib: 13.0  # owner 2026-09-07 (share-a-card): our measured peak is 9.23 GiB; 13.0 stops us long before
+                               # a co-tenant is squeezed, on either card. Was 17.0 when we assumed a whole A5000.
+
+# ---------------------------------------------------------------- logging ----
+log:
+  hourly_seconds: 3600.0
+  steps_every: 1

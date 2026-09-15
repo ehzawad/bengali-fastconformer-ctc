@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+experiments/
+data4/
+data2/
+*.nemo
+*.pt
+*.log

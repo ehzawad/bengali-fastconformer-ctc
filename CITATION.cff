@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: "If you use this code or the model it trains, please cite it as below."
+title: "Bengali FastConformer-CTC: corpus construction, admission audits, training and evaluation"
+abstract: >-
+  Training and evaluation code for ehzawad/stt_bn_fastconformer_ctc, a
+  FastConformer-CTC large for Bengali trained on 1,692 hours of human-supervised
+  speech: corpus construction with measured admission gates, a warm-start
+  trainer with regression guards and eligibility-based checkpoint selection,
+  panel evaluation on a frozen scoring surface, and a sealed one-decode test
+  procedure with paired bootstraps.
+authors:
+  - family-names: Zawad
+    given-names: Emrul
+year: 2026
+url: "https://github.com/ehzawad/bengali-fastconformer-ctc"
+repository-code: "https://github.com/ehzawad/bengali-fastconformer-ctc"
+identifiers:
+  - type: url
+    value: "https://huggingface.co/ehzawad/stt_bn_fastconformer_ctc"
+    description: "The model weights this code produced"
+keywords:
+  - speech recognition
+  - Bengali
+  - FastConformer
+  - connectionist temporal classification
+license: Apache-2.0

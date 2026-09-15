@@ -1,0 +1,72 @@
+# Month-1 production training unit. Bland name by request: nothing in
+# `systemctl --user list-units` output should reveal what runs or from where.
+# Control it with the `trainctl` script in the repo (status/stop/start/kill).
+#
+# Fresh name on purpose: the old conformer-train.service had a dead transient
+# fragment in /run/user/1004/systemd/transient/ that OUTRANKED the persistent
+# file until reboot, plus a stale drop-in whose ExecStart=/TMPDIR overrides
+# pointed at the retired conformer_ctc_bn experiment. A new unit name has no
+# transient fragment and no drop-ins, so this file is authoritative NOW.
+[Unit]
+Description=worker
+Wants=worker-watch.service worker-storage.service
+# GPU-refusal exits nonzero and must retry forever; a burst limit would park
+# the run permanently while a co-tenant holds the cards.
+StartLimitIntervalSec=0
+
+[Service]
+Type=exec
+WorkingDirectory=/path/to/bengali-fastconformer-ctc
+
+Environment=HOME=/mnt/sdb/arafat
+Environment=PYTHONUNBUFFERED=1
+# PCI_BUS_ID is mandatory: torch's FASTEST_FIRST order flips the cards, and
+# CUDA_VISIBLE_DEVICES=1 would then select the WRONG card (see run_stage.sh).
+Environment=CUDA_DEVICE_ORDER=PCI_BUS_ID
+# Cleared so run_stage.sh re-surveys both cards at every (re)start; a crash on
+# one card may legitimately resume on the other (batch product 252 invariant).
+Environment="CUDA_VISIBLE_DEVICES="
+Environment=PORTABLE_VRAM_MIB=20480
+Environment=TRAIN_BATCH=21
+Environment=TRAIN_ACCUM_N=12
+Environment=MARGIN_MIB=1200
+Environment=PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+Environment=HF_HOME=/mnt/sdb/arafat/.cache/huggingface
+# Short TMPDIR is load-bearing twice over: (a) same /dev/sdb filesystem as
+# experiments/, so Lightning's fsspec move stays an atomic RENAME; (b) 24
+# bytes, far under the 108-byte AF_UNIX sun_path cap that deadlocked the
+# DataLoader worker sockets when TMPDIR sat 90+ bytes deep under experiments/.
+Environment=TMPDIR=/mnt/sdb/arafat/.tmp-asr
+
+# Torn-write recovery: quarantines unfinished/corrupt last checkpoints (to a
+# SIBLING of checkpoints/, outside NeMo's rglob) and falls back to a verified
+# top-k. Exits nonzero rather than starting from scratch.
+# Bland launcher (mode 700) hides all repo paths from `ps`; it runs the
+# mkdir/readiness/checkpoint-guard preflight internally, then execs the
+# stage runner. A guard refusal exits nonzero -> Restart=on-failure.
+ExecStart=/path/to/bengali-fastconformer-ctc/.venv/bin/python bnasr/train.py -c configs/ctc_from_nvidia.yaml
+
+# on-failure, NOT always: a clean max_steps/early-stop exit must stay stopped.
+Restart=on-failure
+RestartSec=5min
+OOMPolicy=kill
+KillMode=control-group
+KillSignal=SIGTERM
+SendSIGKILL=yes
+FinalKillSignal=SIGKILL
+# Adversary-committed: a stop can land on validation + two 1.36 GiB checkpoint
+# writes + best-restore + .nemo serialization. A 90 s default would SIGKILL
+# mid-write; 15 min covers the combined final boundary.
+TimeoutStopSec=15min
+
+# Shared box: yield CPU/IO to the co-tenant danswer stack, never the GPU.
+Nice=10
+CPUWeight=50
+IOWeight=50
+UMask=0027
+
+StandardOutput=append:/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/logs/train_1kh.log
+StandardError=append:/mnt/sdb/arafat/ehz/llm/bengali-asr-pipeline/logs/train_1kh.log
+
+[Install]
+WantedBy=default.target
