@@ -37,9 +37,8 @@ surface. Greedy CTC decoding, no language model.
 
 ### 2.1 FLEURS Bengali test (920 recordings)
 
-**WER 17.1162 %, CER 5.1217 %.** Paired sentence-cluster bootstrap (349 clusters, 20,000 draws) against the
-Qwen3-ASR-1.7B Bengali adapter (`ehzawad/stt_bn_qwen3_asr`, 16.5362 % / 4.6781 %): +0.5799 pp, 95 % CI
-[−0.2311, +1.3962] — not distinguishable.
+**WER 17.1162 %, CER 5.1217 %** (corpus WER on the frozen normaliser; the public benchmark's scorer reads
+17.12 % on the same recordings).
 
 ### 2.2 Development panels (used for checkpoint selection)
 
@@ -79,22 +78,23 @@ each pair therefore has a reference that cannot match its audio. Both numbers ar
 Published in [bengali-asr-benchmark](https://github.com/ehzawad/bengali-asr-benchmark), one model at a time on
 an RTX A5000, batch 1, the benchmark's own scorer.
 
-**FLEURS test (920 utterances):** hishab Conformer Large 14.37 %, Whisper Medium 16.23 %, Qwen3-ASR + Bengali
-adapter 16.54 %, **this model 17.12 %**, wav2vec2 20.64 %, hishab FastConformer 36.22 %.
+**FLEURS test (920 utterances):** hishab Conformer Large 14.37 %, Whisper Medium 16.23 %, **this model 17.12 %**,
+wav2vec2 20.64 %, hishab FastConformer 36.22 %.
 
 **Official test splits of other corpora** (frozen seeded 1,000-utterance subsets; this model's Vaani/SPRING
 rows are its hypotheses from §2.3 scored on those utterances; its Kathbath rows are fresh decodes):
 
-| Model | Vaani test | SPRING R1 eval | SPRING R2 eval | Kathbath test (known spk) | Kathbath test (unknown spk) |
-|---|---:|---:|---:|---:|---:|
-| **this model** | **24.66 %** | **39.24 %** | **38.41 %** | 13.38 % | 13.43 % |
-| Whisper Medium (`SayedShaun/bengali-whisper-medium`) | 26.25 % | 39.96 % | 39.70 % | 9.69 % | 9.79 % |
-| Conformer Large (`hishab/titu_stt_bn_conformer_large`) | 33.10 % | 42.46 % | 42.24 % | **9.33 %** | **8.79 %** |
-| hishab FastConformer | 28.71 % | 46.47 % | 45.08 % | 25.81 % | 29.87 % |
-| wav2vec2 (`SayedShaun/bangla-wave2vec2-unigram`) | 31.26 % | 47.28 % | 47.33 % | 19.08 % | 18.80 % |
+| Model | Vaani test | SPRING R1 eval | SPRING R2 eval | Kathbath test (known spk) | Kathbath test (unknown spk) | IndicVoices conversational |
+|---|---:|---:|---:|---:|---:|---:|
+| **this model** | **24.66 %** | **39.24 %** | **38.41 %** | 13.38 % | 13.43 % | **12.61 %** |
+| Whisper Medium (`SayedShaun/bengali-whisper-medium`) | 26.25 % | 39.96 % | 39.70 % | 9.69 % | 9.79 % | 25.03 % |
+| Conformer Large (`hishab/titu_stt_bn_conformer_large`) | 33.10 % | 42.46 % | 42.24 % | **9.33 %** | **8.79 %** | 29.68 % |
+| hishab FastConformer | 28.71 % | 46.47 % | 45.08 % | 25.81 % | 29.87 % | 30.14 % |
+| wav2vec2 (`SayedShaun/bangla-wave2vec2-unigram`) | 31.26 % | 47.28 % | 47.33 % | 19.08 % | 18.80 % | 33.01 % |
 
-Conformer Large trained on Kathbath train and validation; this model on Kathbath train only; Whisper's and
-wav2vec2's provenance for these corpora is not documented. Intervals, the SPRING Latin/no-Latin split and
+Conformer Large trained on Kathbath train and validation; this model on Kathbath train only, and on the IndicVoices
+train split — so its IndicVoices conversational number is not a clean head-to-head; Whisper's and wav2vec2's
+provenance for these corpora is not documented. Intervals, the SPRING Latin/no-Latin split and
 per-set latency are in the benchmark README.
 
 ## 3. Limitations

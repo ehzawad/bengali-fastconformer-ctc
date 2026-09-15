@@ -56,10 +56,10 @@ decoding, no language model: **WER 17.12 %, CER 5.12 %**.
 
 Under the same scorer on the same 920 recordings, the public comparison in
 [bengali-asr-benchmark](https://github.com/ehzawad/bengali-asr-benchmark): hishab Conformer Large 14.37 %,
-Whisper Medium (tugstugi) 16.23 %, Qwen3-ASR-1.7B + Bengali adapter 16.54 %, this model 17.12 %, wav2vec2 20.64 %,
-hishab FastConformer 36.22 %. On the official test splits of corpora none of these models trained on, this model
-leads: Vaani test 24.66 %, SPRING-INX R1 39.24 %, R2 38.41 % (1,000-utterance subsets); on Kathbath test it
-reads 13.4 % against Conformer Large's 9.3 %.
+Whisper Medium (tugstugi) 16.23 %, this model 17.12 %, wav2vec2 20.64 %, hishab FastConformer 36.22 %. On the
+official test splits of corpora none of these models trained on, this model leads: Vaani test 24.66 %,
+SPRING-INX R1 39.24 %, R2 38.41 % (1,000-utterance subsets); on Kathbath test it reads 13.4 % against Conformer
+Large's 9.3 %; on IndicVoices conversational 12.6 % (it trained on that corpus's train split; the others read 25–33 %).
 
 Held-out panels, the benchmark tables and the limitations: [SUPPLEMENT.md](SUPPLEMENT.md).
 
