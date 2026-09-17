@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""this recipe corpus builder (SPEC §1–§2, §5): protected panels, dev-slice M, carving, dedup, caps,
+"""Phase-4 corpus builder (SPEC §1–§2, §5): protected panels, dev-slice M, carving, dedup, caps,
 CTC feasibility, and the three static pilot manifests O / N / C.
 
 Everything here is deterministic (seeded) and CPU-only. It consumes the bucket manifests written by the
@@ -7,7 +7,7 @@ ingest tools and emits, under experiments/corpus/:
 
   panel_M.jsonl                 MaCro validated dev slice (≈3.5 h, ≥500 sentence groups, ≤3 recordings/group,
                                 groups drawn by seed from sentences with NO historical exposure)
-  arm_O.jsonl                   the baseline corpus with re-normalised targets (control)
+  arm_O.jsonl                   Phase-1 corpus with re-normalised targets (control)
   arm_N.jsonl                   O + all admitted new buckets (natural mixture)
   arm_C.jsonl                   N with macro_filtered+madasr jointly downsampled to 30 % of retained hours
   build_report.json             every count: rows/hours per source per arm, removals per reason, feasibility stats
@@ -18,8 +18,8 @@ Rules implemented (numbers are SPEC's; changing one here without changing SPEC i
   * protected set P = D ∪ holdout ∪ FLEURS test ∪ FLEURS validation ∪ Kathbath valid ∪ MADASR dev (if present) ∪ M
   * any training row whose surface text ∈ P is removed (all buckets, old corpus included)
   * global MAX_PER_TEXT = 5 distinct recordings per surface text across ALL sources; keep order = sha1(path)
-  * new-bucket duration 0.5–23 s (old rows keep the baseline bounds); cps 2–35 for new rows
-  * tokenizer feasibility with the the baseline 1,024 BPE: no <unk>; L + R ≤ T and (L+R)/T ≤ 0.90 where
+  * new-bucket duration 0.5–23 s (old rows keep Phase-1 bounds); cps 2–35 for new rows
+  * tokenizer feasibility with the Phase-1 1,024 BPE: no <unk>; L + R ≤ T and (L+R)/T ≤ 0.90 where
       L = #pieces, R = #adjacent equal pieces, T = encoder frames = floor(floor(dur*100)/8)  (dw-striding 8×, 10 ms hop;
       this matches NeMo's ConvSubsampling length formula for stride-2 layers with padding, checked in Gate 0)
     A new bucket losing >1 % of its rows to feasibility is a STOP condition (reported, not silently applied).
@@ -32,7 +32,6 @@ import hashlib
 import json
 import math
 import random
-import os
 import sys
 import unicodedata
 from collections import Counter, defaultdict
@@ -61,7 +60,7 @@ MATH = re.compile(r"[+=×÷%<>/]")                              # checked on the
 OLD_TRAIN = REPO / "data2/train_corpus_ready.json"
 PANEL_D = REPO / "data2/val_corpus.json"
 HOLDOUT = REPO / "data2/holdout_corpus.json"
-FLEURS = Path(os.environ.get("BNASR_FLEURS_MANIFEST", "/mnt/sdb/arafat/ehz/llm/bench_assets/eval_manifest.json"))
+FLEURS = Path("/mnt/sdb/arafat/ehz/llm/bench_assets/eval_manifest.json")
 KATHBATH_VALID = REPO / "data4/kathbath/manifest_valid.jsonl"
 MADASR_DEV_CSV = REPO / "data4/tugstugi/csv/bengali-madasr-dev.csv"      # text-only protection until the audio arrives
 MADASR_DEV = REPO / "data4/respin/manifest_madasr_dev.jsonl"
@@ -75,6 +74,10 @@ NEW_BUCKETS = {
 SPRING_TRAIN = [REPO / "data4/spring_inx/R1/manifest_train.jsonl", REPO / "data4/spring_inx/R2/manifest_train.jsonl"]
 # Official validation/test splits of the extra buckets are PROTECTED (never trained on; one-shot reports only)
 EXTRA_PROTECTED = {
+    # macro_validated is panel M's parent and is PANEL_ONLY by the owner's 2026-09-05 ruling.
+    # It was absent from this map, so only the 1,829 rows that became panel M were protected by
+    # name; 5 rows of it survived into arm_O+madasr.jsonl (found 2026-09-16). Protect the source.
+    "macro_validated": REPO / "data4/macro/manifest_macro_validated.jsonl",
     "vaani_validation": REPO / "data4/vaani/manifest_validation.jsonl",
     "vaani_test": REPO / "data4/vaani/manifest_test.jsonl",
     "spring_r1_validation": REPO / "data4/spring_inx/R1/manifest_validation.jsonl",
@@ -84,7 +87,7 @@ EXTRA_PROTECTED = {
 }
 CAPPED_BUCKETS = ("macro_filtered", "madasr")
 PANEL_ONLY_BUCKETS = {"macro_validated"}       # owner ruling 2026-09-05 (strict G0.9(b)): feeds panel M only, never trains
-OWNER_EXCLUDED_BUCKETS = set()                  # 2026-09-06: the owner's "catastrophic" verdicts targeted the the baseline HYPOTHESIS shown as a hint, not the
+OWNER_EXCLUDED_BUCKETS = set()                  # 2026-09-06: the owner's "catastrophic" verdicts targeted the Phase-1 HYPOTHESIS shown as a hint, not the
                                                 # reference (verified: hishab transcribes the board audio to the reference); references judged OK for all buckets
 DUP_RATE_MAX = 0.005                            # G0.9(b): incoming duplicate/defect rate per new bucket
 
@@ -159,9 +162,17 @@ def main():
     for name, pth in EXTRA_PROTECTED.items():
         if pth.exists():
             protect(name, [r["text"] for r in rows_of(pth)])
-    else:
-        with open(MADASR_DEV_CSV, encoding="utf-8", newline="") as fh:
-            protect("madasr_dev(text-only)", [r[2] for r in csv.reader(fh) if len(r) >= 3])
+    # The CSV is loaded UNCONDITIONALLY and that is deliberate. It carries the full MADASR dev
+    # text, which removes 50,621 rows / 61.9 h = 99.6 % of everything the madasr bucket protects;
+    # the dev manifest alone removes 0.176 h. Until 2026-09-16 this block was written as `else:`
+    # on the `for` above — a for/else runs unless the loop breaks, and nothing breaks, so it ran
+    # every time by accident while reading like a fallback for a missing manifest. One refactor
+    # adding a `break` would have silently dropped nearly all of panel R's protection.
+    if not MADASR_DEV_CSV.exists():
+        raise SystemExit(f"ABORT: {MADASR_DEV_CSV} is missing; it carries 99.6 % of the MADASR "
+                         f"protected text. Refusing to build a corpus without it.")
+    with open(MADASR_DEV_CSV, encoding="utf-8", newline="") as fh:
+        protect("madasr_dev(text-only)", [r[2] for r in csv.reader(fh) if len(r) >= 3])
 
     # historical exposure = every sentence any earlier phase trained on (Phases 1–3 shared one corpus)
     old = rows_of(OLD_TRAIN)
@@ -336,7 +347,7 @@ def main():
                 rm["fingerprint_match_to_panel"] += 1; continue
             # Kathbath HF valid shares speakers with train (27,230 rows) -> K is a known-speaker panel; no speaker exclusion.
             # G0.9 uniformity rules apply to EVERY bucket, old corpus included (owner 2026-09-05: "recheck the previous
-            # dataset, don't take anything for granted"). The the baseline audit found 84 Latin-letter FLEURS rows, 262 Subakko
+            # dataset, don't take anything for granted"). The Phase-1 audit found 84 Latin-letter FLEURS rows, 262 Subakko
             # rows with Latin vitamin names, 450 Subakko math expressions ("১+৩+৫+৭=১৬" -> after punctuation-to-space the
             # target is a digit soup nobody spoke) and 3,311 OpenSLR rows below 2 chars/s.
             if LATIN.search(t):
@@ -496,6 +507,15 @@ def main():
                 "by_source": {s: {"rows": c[s], "hours": round(h[s], 2), "share": round(h[s] / tot_h, 4)} for s in c}}
 
     def write(name, rows):
+        # The "|" -> space rule lives ONLY in surf() (the frozen scoring surface keeps "|": it is
+        # category Sm, and the tokenizer has it at piece rank 999 so the no-<unk> feasibility gate
+        # cannot catch it either). One edit to surf() would put pipes into training targets with
+        # nothing to notice. Assert the invariant at the only place that matters instead of
+        # relying on the rule staying where it is.
+        bad = [r for r in rows if "|" in r["text"]]
+        if bad:
+            raise SystemExit(f"ABORT: {len(bad)} row(s) of arm {name} carry '|' in the training "
+                             f"target, e.g. {bad[0]['audio_filepath']}. surf() must map it to space.")
         rows = sorted(rows, key=lambda r: h64(r["audio_filepath"]))     # one fixed global shuffle
         with open(out / f"arm_{name}.jsonl", "w", encoding="utf-8") as fh:
             for r in rows:

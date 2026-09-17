@@ -2611,3 +2611,71 @@ flags per council AD carried into the public table (N / S / U). Published: `beng
 (sibling-split exposure: Kathbath train in the corpus, validation = panel K). Reading: on the two corpora nobody trained on the
 FLEURS ranking inverts (hishab-CL last on Vaani); Phase 4 leads Vaani and SPRING and gains over Phase 1 on every set; on Kathbath
 hishab-CL (trained on its validation split) and Whisper (provenance unknown) lead, Phase 4 third.
+
+### 8w.22 Corpus audit for the next run — six defects found and fixed, and the sibling-panel finding — 2026-09-16/17
+
+An 11-agent audit (five analysts, one adversarial verifier each, one synthesis) measured every expansion pool on disk.
+The adversarial pass overturned two of the five findings. Everything below is duration-summed, never row-inferred.
+
+**Verified addable hours — 411, not the ~1,000 hoped for.** SPRING-INX keep-list **234.30 h** (95,048 rows; the audit's
+224.10 was UNDERSTATED — it had cut 10.92 h with a matcher measured at 36.7 % precision); Vaani train **105.77 h** today,
+117.40 h after the ingest repair below (OVERSTATED at 117.40: 11.63 h carries our own defect); RESPIN/MADASR **59.65 h at
+k=2** (CONFIRMED at 148.96 h for k=5, but see below); OpenSLR-37 **4.91 h**, not worth a slot; SYSPIN/IndicTTS **0 addable**
+(licence conflict, and 21.09 h of SYSPIN sits in RESPIN's own two domains with untestable panel-R prompt leakage);
+macro_validated **0** — the audit escalated a question the owner closed on 2026-09-05, and it fails G0.9(b) at 32.4 %
+incoming against a 0.5 % ceiling. IndicVoices "not-excellent" rows: **do not exist** (`not_excellent: 0` across all shards),
+closing that survey item.
+
+**RESPIN's cap was correct engineering, not an oversight.** The 894.2 h is **20,038 distinct sentences in two domains**
+(Agriculture 509.1 h, Banking 385.1 h), median 24 speakers per sentence. Speaker coverage saturates: k=1 94.3 %, k=2 96.7 %,
+k=3 97.5 %, k=5 98.6 %; the k=5→20 band costs **36.9 h per additional speaker and adds zero new sentences**. At k=5 the
+bucket is measured **+0.288 pp worse on every panel it does not own**. Recommended k=2 (2.8 % of the mixture, not 8.1 %) —
+a NEW registration per §8w.767, never a rescue of the existing one.
+
+**THE SIBLING-PANEL FINDING.** Re-derived from `runs/*/val.jsonl` at update 8,000, zero new compute. Sibling map:
+`macro_*`→M, `madasr`→R. Decomposing ΔS into the panel each arm owns and the rest:
+
+| arm | ΔS | Δ on panels it does NOT own | Δ conversational |
+|---|---:|---:|---:|
+| macro_filtered (SHIPPED) | −0.542 | **−0.044** | +0.422 |
+| madasr | −0.994 | **+0.288 WORSE** | −0.016 |
+| vaani | −0.074 | −0.074 (owns nothing) | 0.000 |
+| union | **−1.202 (best ever)** | **+0.004 — flat** | **+0.829 FAIL** |
+
+**No bucket has ever demonstrated a sibling-free S gain — including the one we shipped.** Under a sibling-clipped score the
+ranking inverts (vaani −0.074 best, madasr +0.293 worst) and **nothing would have been admitted**. The harm is also
+superadditive: macro alone +0.422 conversational, madasr alone −0.016, together +0.829.
+
+**Confirmed sibling-free at zero GPU cost** (D's per-source slices; no candidate bucket is a sibling of any of them), Δ pp
+vs control: macro commonvoice −2.538 / subakko −1.066 / openslr53 −0.847 / kathbath −0.286 but **indicvoices +0.794**;
+union commonvoice −1.699 / subakko −0.778 / kathbath −0.500 / openslr53 −0.471 but **indicvoices +0.684**. Read hours buy
+read WER and are paid for in spontaneous WER, same sign in both arms. The planned holdout re-decode (≈22 GPU-min) was
+**NOT spent**: these five slices already establish the direction, and the holdout is the only sizeable sibling-free
+protected set left.
+
+**Six defects, all fixed 2026-09-17, 432 checks green after:**
+1. `p4_ingest_parquet.BRACE_GLOSS_SUFFIX` re-attached a case suffix by concatenation, gluing an **independent vowel letter**
+   where Bengali requires a **dependent vowel sign** — `সাইডএ` for `সাইডে`, `ডিস্ট্রিক্টএর` for `ডিস্ট্রিক্টের`. 6,629 Vaani
+   rows / 11.63 h, ~100× enriched, and invisible to the script gate because every character is Bengali. Fixed with an
+   explicit letter→sign map (`এ`→`ে` etc.); **`ও` is deliberately not mapped** — the emphatic particle after a consonant is
+   correctly written with the independent letter (`চলাচলও`, `বাসও`). Recovering the 11.63 h needs a Vaani re-download; the
+   raw parquet is no longer on disk.
+2. `p4_ingest_parquet` truncated output names at 120 chars, so two utterances could **silently overwrite one file**. Three
+   Vaani-**validation** files each carry two manifest rows today — **6 rows of a protected panel are guaranteed-wrong
+   audio/text pairs**. Names now keep a readable prefix plus a hash suffix, and a collision aborts the ingest.
+3. `p4_build_corpus` protected-text block: the `else` read as a fallback for a missing MADASR dev manifest but belonged to
+   the `for` above it, so it ran every time by accident. That CSV removes **50,621 rows / 61.9 h = 99.6 %** of MADASR's
+   protection (the dev manifest alone removes 0.176 h). One refactor adding a `break` would have silently dropped it. Now
+   unconditional, with an abort if the file is absent, and the file is **pinned in `FREEZE.sha256`** (was not).
+4. `macro_validated` was absent from `EXTRA_PROTECTED`, so only the 1,829 rows that became panel M were protected by name;
+   **5 rows / 0.011 h survive into `arm_O+madasr.jsonl` today**. The source is now protected whole.
+5. The `"|"`→space rule exists only in `p4_build_corpus.surf()`; the frozen scorer keeps `|` (category Sm) and the tokenizer
+   has it at piece rank 999, so the no-`<unk>` gate cannot catch it either. The frozen surface must not change, so the
+   invariant is now **asserted at write time** — an arm carrying `|` in a training target aborts the build.
+6. **SPRING R1-validation and R2-validation share 506 byte-identical files** (verified independently: size + head-SHA1).
+   They are one panel, not two independent one-shots, and must be reported as such. Separately, 45.16 % of SPRING R2 *train*
+   (45,490 files / 118.86 h) is byte-identical to R1 train.
+
+**Consequence for the public record:** if Vaani train ever enters the corpus, Vaani test stops being "unseen" evidence —
+88.2 % of its hours describe a photograph that also appears in train. FLEURS bn_in test and panel R (100 speakers, verified
+disjoint from all 1,791 MADASR train speakers) remain the cleanest external evidence.
